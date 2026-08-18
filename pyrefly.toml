@@ -1,0 +1,6 @@
+[environment]
+python_platform = "win32"
+python_version = "3.14"
+
+[search_path]
+paths = ["backend"]
