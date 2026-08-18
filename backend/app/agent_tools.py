@@ -3,8 +3,8 @@ from langchain.tools import tool
 from app.resume_rag import (
     get_resume_vector_store,
     search_resume,
+    resume_exists,
 )
-
 @tool
 def analyze_job_description(
     job_description: str,
@@ -48,11 +48,15 @@ def retrieve_resume_context(
 
     vector_store = get_resume_vector_store(thread_id)
 
-    if vector_store is None:
+    if not resume_exists(thread_id):
         return (
-            "No resume is indexed for this conversation. "
-            "Ask the user to upload their resume first."
-        )
+        "No resume is indexed for this conversation. "
+        "Ask the user to upload their resume first."
+    )
+
+    vector_store = get_resume_vector_store(
+    thread_id
+    )
 
     retrieved_docs = search_resume(
         vector_store,

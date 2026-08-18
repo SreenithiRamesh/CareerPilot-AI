@@ -13,6 +13,7 @@ from langgraph.graph.message import add_messages
 from app.resume_rag import (
     get_resume_vector_store,
     search_resume,
+    resume_exists,
 )
 
 
@@ -218,12 +219,16 @@ def workflow_job_match_node(state: CareerState):
 
     vector_store = get_resume_vector_store(thread_id)
 
-    if vector_store is None:
+    if not resume_exists(thread_id):
         return {
-            "job_match_analysis": (
-                "Resume is not indexed for this conversation."
-            )
-        }
+        "job_match_analysis": (
+            "Resume is not indexed for this conversation."
+        )
+    }
+
+    vector_store = get_resume_vector_store(
+        thread_id
+    )
 
     if not job_description.strip():
         return {
@@ -283,13 +288,17 @@ def skill_gap_advisor_node(state: CareerState):
 
     vector_store = get_resume_vector_store(thread_id)
 
-    if vector_store is None:
+    if not resume_exists(thread_id):
         return {
-            "response": (
-                "I do not have your resume indexed yet. "
-                "Please upload your resume first."
-            )
-        }
+        "response": (
+            "I do not have your resume indexed yet. "
+            "Please upload your resume first."
+        )
+    }
+
+    vector_store = get_resume_vector_store(
+        thread_id
+    )
 
     if not job_description.strip():
         return {
@@ -426,13 +435,17 @@ def resume_advisor_node(state: CareerState):
 
     vector_store = get_resume_vector_store(thread_id)
 
-    if vector_store is None:
+    if not resume_exists(thread_id):
         return {
-            "response": (
-                "I do not have a resume indexed for this conversation yet. "
-                "Please upload your resume PDF first."
-            )
-        }
+        "response": (
+            "I do not have a resume indexed for this conversation yet. "
+            "Please upload your resume PDF first."
+        )
+    }
+
+    vector_store = get_resume_vector_store(
+    thread_id
+    )
 
     retrieved_docs = search_resume(
         vector_store,
@@ -640,13 +653,17 @@ def job_match_advisor_node(state: CareerState):
 
     vector_store = get_resume_vector_store(thread_id)
 
-    if vector_store is None:
+    if not resume_exists(thread_id):
         return {
-            "response": (
-                "I do not have your resume indexed yet. "
-                "Please upload your resume first."
-            )
-        }
+        "response": (
+            "I do not have your resume indexed yet. "
+            "Please upload your resume first."
+        )
+    }
+
+    vector_store = get_resume_vector_store(
+    thread_id
+    )
 
     if not job_description.strip():
         return {

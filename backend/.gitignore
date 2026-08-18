@@ -65,3 +65,4 @@ build/
 uploads/
 temp/
 tmp/
+.venv-linux/
