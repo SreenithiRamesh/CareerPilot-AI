@@ -8,7 +8,7 @@ from langchain_core.messages import (
     HumanMessage,
 )
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.mysql.pymysql import PyMySQLSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 
@@ -1144,7 +1144,23 @@ builder.add_edge(
 )
 
 
-memory = InMemorySaver()
+LANGGRAPH_DATABASE_URL = os.getenv(
+    "LANGGRAPH_DATABASE_URL"
+)
+
+if not LANGGRAPH_DATABASE_URL:
+    raise RuntimeError(
+        "LANGGRAPH_DATABASE_URL is not configured."
+    )
+
+
+_mysql_saver_context = (
+    PyMySQLSaver.from_conn_string(
+        LANGGRAPH_DATABASE_URL
+    )
+)
+
+memory = _mysql_saver_context.__enter__()
 
 
 career_router_graph = builder.compile(
