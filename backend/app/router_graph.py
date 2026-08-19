@@ -1241,6 +1241,7 @@ Important rules:
             skill_gap_report_id
         ),
     }
+
 def career_planner_node(
     state: CareerState,
 ):

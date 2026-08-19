@@ -1,3 +1,5 @@
+import json
+
 from fastapi import Depends, FastAPI
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
@@ -18,6 +20,7 @@ from app.tool_agent_graph import tool_agent_graph
 app = FastAPI(
     title="CareerPilot AI"
 )
+
 
 app.include_router(
     resume_router
@@ -119,6 +122,7 @@ def chat(
     # If it exists and belongs to another user,
     # conversation_service raises HTTP 403.
     #
+
     get_or_create_owned_conversation(
         db=db,
         user_id=current_user.id,
@@ -144,6 +148,8 @@ def chat(
         "intent": "",
         "response": "",
         "thread_id": request.thread_id,
+
+        # Workflow persistence IDs
         "job_description_id": None,
         "job_match_result_id": None,
         "skill_gap_report_id": None,
@@ -166,8 +172,7 @@ def chat(
     # --------------------------------------------------
     #
     # This prevents blank values from overwriting
-    # profile information already present in the
-    # LangGraph state.
+    # values already stored in LangGraph state.
     #
 
     if request.name:
@@ -221,11 +226,95 @@ def chat(
     )
 
     # --------------------------------------------------
-    # 7. Return API response
+    # 7. Standardize API response
+    # --------------------------------------------------
+    #
+    # Structured AI intents return real nested JSON
+    # under "data".
+    #
+    # Conversational intents continue returning text
+    # under "response".
+    #
+
+    intent = result["intent"]
+
+    response = result["response"]
+
+    structured_intents = {
+        "job_match",
+        "skill_gap",
+        "career_plan",
+    }
+
+    if intent in structured_intents:
+        try:
+            structured_data = json.loads(
+                response
+            )
+
+            api_response = {
+                "intent": intent,
+                "data": structured_data,
+                "thread_id": request.thread_id,
+            }
+
+            # Include generated database IDs when available.
+            if result.get(
+                "job_description_id"
+            ) is not None:
+                api_response[
+                    "job_description_id"
+                ] = result[
+                    "job_description_id"
+                ]
+
+            if result.get(
+                "job_match_result_id"
+            ) is not None:
+                api_response[
+                    "job_match_result_id"
+                ] = result[
+                    "job_match_result_id"
+                ]
+
+            if result.get(
+                "skill_gap_report_id"
+            ) is not None:
+                api_response[
+                    "skill_gap_report_id"
+                ] = result[
+                    "skill_gap_report_id"
+                ]
+
+            if result.get(
+                "career_plan_id"
+            ) is not None:
+                api_response[
+                    "career_plan_id"
+                ] = result[
+                    "career_plan_id"
+                ]
+
+            return api_response
+
+        except (
+            json.JSONDecodeError,
+            TypeError,
+        ):
+            # Graceful fallback if structured output
+            # could not be decoded for any reason.
+            return {
+                "intent": intent,
+                "response": response,
+                "thread_id": request.thread_id,
+            }
+
+    # --------------------------------------------------
+    # 8. Normal conversational response
     # --------------------------------------------------
 
     return {
-        "intent": result["intent"],
-        "response": result["response"],
+        "intent": intent,
+        "response": response,
         "thread_id": request.thread_id,
     }
