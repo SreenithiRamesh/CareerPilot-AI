@@ -66,6 +66,21 @@ class SkillGapReport(Base):
         nullable=True,
     )
 
+    practice_tasks: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    proof_of_skill_actions: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    readiness_summary: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,

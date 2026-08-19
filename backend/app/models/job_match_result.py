@@ -66,6 +66,11 @@ class JobMatchResult(Base):
         nullable=True,
     )
 
+    priority_actions: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,

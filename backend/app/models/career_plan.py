@@ -56,6 +56,21 @@ class CareerPlan(Base):
         nullable=True,
     )
 
+    practical_tasks: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    portfolio_evidence: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    interview_preparation_focus: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
     action_plan_30_days: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,

@@ -11,13 +11,22 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.checkpoint.mysql.pymysql import PyMySQLSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
-
+from app.schemas.ai_outputs import (
+    JobMatchOutput,
+    SkillGapOutput,
+    CareerPlanOutput,
+)
 from app.resume_rag import (
     get_resume_vector_store,
     resume_exists,
     search_resume,
 )
-
+from app.services.workflow_persistence import (
+    get_or_create_job_description,
+    persist_job_match,
+    persist_skill_gap,
+    persist_career_plan,
+)
 
 load_dotenv()
 
@@ -26,7 +35,15 @@ model = ChatGoogleGenerativeAI(
     model="gemini-3.5-flash-lite",
     google_api_key=os.getenv("GEMINI_API_KEY"),
 )
-
+job_match_model = model.with_structured_output(
+    JobMatchOutput
+)
+skill_gap_model = model.with_structured_output(
+    SkillGapOutput
+)
+career_plan_model = model.with_structured_output(
+    CareerPlanOutput
+)
 
 class CareerState(TypedDict):
     message: str
@@ -38,6 +55,13 @@ class CareerState(TypedDict):
     resume_id: int | None
 
     job_description: str
+
+    # Database IDs created during analysis workflow
+    job_description_id: int | None
+    job_match_result_id: int | None
+    skill_gap_report_id: int | None
+    career_plan_id: int | None
+
     job_match_analysis: str
     skill_gap_analysis: str
     career_plan: str
@@ -53,7 +77,6 @@ class CareerState(TypedDict):
         list[AnyMessage],
         add_messages,
     ]
-
 
 def build_conversation_context(
     state: CareerState,
@@ -310,6 +333,10 @@ def workflow_job_match_node(
         "",
     )
 
+    # --------------------------------------------------
+    # 1. Validate resume availability
+    # --------------------------------------------------
+
     if not resume_exists(
         thread_id
     ):
@@ -320,6 +347,10 @@ def workflow_job_match_node(
             )
         }
 
+    # --------------------------------------------------
+    # 2. Validate job description
+    # --------------------------------------------------
+
     if not job_description.strip():
         return {
             "job_match_analysis": (
@@ -327,15 +358,42 @@ def workflow_job_match_node(
             )
         }
 
-    vector_store = (
-        get_resume_vector_store(
-            thread_id
-        )
+    # --------------------------------------------------
+    # 3. Validate resume ID
+    # --------------------------------------------------
+
+    resume_id = state.get(
+        "resume_id"
     )
+
+    if resume_id is None:
+        return {
+            "job_match_analysis": (
+                "CareerPilot could not run the "
+                "job-match workflow because "
+                "no resume ID was provided."
+            )
+        }
+
+    # --------------------------------------------------
+    # 4. Open persistent Chroma collection
+    # --------------------------------------------------
+
+    vector_store = get_resume_vector_store(
+        thread_id
+    )
+
+    # --------------------------------------------------
+    # 5. Build authenticated ownership filters
+    # --------------------------------------------------
 
     filters = get_resume_filters(
         state
     )
+
+    # --------------------------------------------------
+    # 6. Retrieve relevant resume evidence
+    # --------------------------------------------------
 
     retrieved_docs = search_resume(
         vector_store,
@@ -354,13 +412,27 @@ def workflow_job_match_node(
             )
         }
 
+    # --------------------------------------------------
+    # 7. Build grounded resume context
+    # --------------------------------------------------
+
     resume_context = "\n\n".join(
         doc.page_content
         for doc in retrieved_docs
     )
 
+    # --------------------------------------------------
+    # 8. Build structured Job Match prompt
+    # --------------------------------------------------
+
     prompt = f"""
 You are the Job Match Analysis Agent inside CareerPilot AI.
+
+Your responsibility is to compare the candidate's resume
+against the provided job description and produce an
+evidence-grounded structured job-match assessment.
+
+USER PROFILE
 
 {user_context}
 
@@ -372,30 +444,98 @@ RESUME EVIDENCE
 
 {resume_context}
 
-Analyze the candidate's match for the role.
+Analyze the candidate's match for this role.
 
-Return:
+Evaluate:
 
-- Match score
-- Strong matches
-- Partial matches
-- Missing requirements
+- overall match score from 0 to 100
+- strongly matched requirements
+- partially matched requirements
+- missing skills or requirements
+- resume improvements
+- priority actions
 
-Do not invent experience.
+Important rules:
+
+- Use only the retrieved resume evidence.
+- Do not invent experience, projects, skills, certifications,
+  achievements, or metrics.
+- Do not claim that the candidate has a skill unless the
+  resume evidence supports it.
+- A partial match may be used when related evidence exists,
+  but the exact requirement is not clearly demonstrated.
+- Keep every result concise and specific.
+- The match score must reflect the actual evidence.
+- Do not exaggerate the candidate's readiness.
 """
 
-    result = model.invoke(
-        prompt
+    # --------------------------------------------------
+    # 9. Generate structured JobMatchOutput
+    # --------------------------------------------------
+
+    try:
+        result = job_match_model.invoke(
+            prompt
+        )
+
+    except Exception:
+        return {
+            "job_match_analysis": (
+                "CareerPilot could not generate "
+                "the structured job-match analysis."
+            )
+        }
+
+    # --------------------------------------------------
+    # 10. Persist Job Description + Job Match
+    # --------------------------------------------------
+
+    try:
+        job_description_id = (
+            get_or_create_job_description(
+                user_id=state["user_id"],
+                description_text=job_description,
+            )
+        )
+
+        job_match_result_id = (
+            persist_job_match(
+                user_id=state["user_id"],
+                resume_id=resume_id,
+                job_description_id=job_description_id,
+                result=result,
+            )
+        )
+
+    except Exception:
+        return {
+            "job_match_analysis": (
+                "CareerPilot generated the job-match "
+                "analysis but could not save it."
+            )
+        }
+
+    # --------------------------------------------------
+    # 11. Convert structured result to JSON
+    # --------------------------------------------------
+
+    analysis = result.model_dump_json(
+        indent=2
     )
 
-    analysis = normalize_response(
-        result.content
-    )
+    # --------------------------------------------------
+    # 12. Return structured result + persistence IDs
+    # --------------------------------------------------
 
     return {
         "job_match_analysis": analysis,
+        "job_description_id": (
+            job_description_id
+        ),
+        "job_match_result_id": (
+            job_match_result_id
+        ),
     }
-
 
 def skill_gap_advisor_node(
     state: CareerState,
@@ -413,49 +553,16 @@ def skill_gap_advisor_node(
         "",
     )
 
+    # --------------------------------------------------
+    # 1. Validate resume availability
+    # --------------------------------------------------
+
     if not resume_exists(
         thread_id
     ):
-        return {
-            "response": (
-                "I do not have your resume "
-                "indexed yet. "
-                "Please upload your resume first."
-            )
-        }
-
-    if not job_description.strip():
-        return {
-            "response": (
-                "Please provide the job description "
-                "so I can identify your skill gaps "
-                "for that role."
-            )
-        }
-
-    vector_store = (
-        get_resume_vector_store(
-            thread_id
-        )
-    )
-
-    filters = get_resume_filters(
-        state
-    )
-
-    retrieved_docs = search_resume(
-        vector_store,
-        job_description,
-        k=5,
-        user_id=filters["user_id"],
-        resume_id=filters["resume_id"],
-    )
-
-    if not retrieved_docs:
         response_text = (
-            "I could not find resume evidence "
-            "for the authenticated user and "
-            "selected resume."
+            "I do not have your resume indexed yet. "
+            "Please upload your resume first."
         )
 
         return {
@@ -467,13 +574,117 @@ def skill_gap_advisor_node(
             ],
         }
 
+    # --------------------------------------------------
+    # 2. Validate job description
+    # --------------------------------------------------
+
+    if not job_description.strip():
+        response_text = (
+            "Please provide the job description "
+            "so I can identify your skill gaps "
+            "for that role."
+        )
+
+        return {
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
+
+    # --------------------------------------------------
+    # 3. Validate resume ID
+    # --------------------------------------------------
+
+    resume_id = state.get(
+        "resume_id"
+    )
+
+    if resume_id is None:
+        response_text = (
+            "CareerPilot could not run the skill-gap "
+            "analysis because no resume ID was provided."
+        )
+
+        return {
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
+
+    # --------------------------------------------------
+    # 4. Open persistent Chroma collection
+    # --------------------------------------------------
+
+    vector_store = get_resume_vector_store(
+        thread_id
+    )
+
+    # --------------------------------------------------
+    # 5. Build authenticated ownership filters
+    # --------------------------------------------------
+
+    filters = get_resume_filters(
+        state
+    )
+
+    # --------------------------------------------------
+    # 6. Retrieve resume evidence
+    # --------------------------------------------------
+
+    retrieved_docs = search_resume(
+        vector_store,
+        job_description,
+        k=5,
+        user_id=filters["user_id"],
+        resume_id=filters["resume_id"],
+    )
+
+    # --------------------------------------------------
+    # 7. Handle missing / unauthorized resume evidence
+    # --------------------------------------------------
+
+    if not retrieved_docs:
+        response_text = (
+            "I could not find resume evidence "
+            "owned by your account for the selected resume."
+        )
+
+        return {
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
+
+    # --------------------------------------------------
+    # 8. Build evidence-grounded resume context
+    # --------------------------------------------------
+
     resume_context = "\n\n".join(
         doc.page_content
         for doc in retrieved_docs
     )
 
+    # --------------------------------------------------
+    # 9. Structured Skill Gap prompt
+    # --------------------------------------------------
+
     prompt = f"""
 You are the Skill Gap Specialist inside CareerPilot AI.
+
+Your responsibility is to identify the candidate's skill gaps
+for the specific job description using only the retrieved
+resume evidence.
+
+USER PROFILE
 
 {user_context}
 
@@ -485,53 +696,145 @@ RETRIEVED RESUME EVIDENCE
 
 {resume_context}
 
-Your task is to identify the candidate's skill gaps for this specific job.
-
-Return the response in this structure:
-
-1. Existing Relevant Skills
-2. Missing Skills
-3. Partially Demonstrated Skills
-4. Priority Ranking
-   - High
-   - Medium
-   - Low
-5. Recommended Learning Order
-6. Practice Task for Each High-Priority Gap
-7. Proof-of-Skill Project or Resume Evidence to Build
-8. Short Readiness Plan
-
-Rules:
-
-- Use only resume evidence provided above.
-- Do not invent skills or experience.
-- Clearly separate existing skills from missing skills.
-- Prioritize gaps based on importance to the job description.
-- Keep recommendations realistic for an entry-level candidate.
-- Do not recommend learning everything at once.
-
-User request:
+CURRENT USER REQUEST
 
 {user_message}
+
+Analyze the candidate's readiness for this role.
+
+Evaluate:
+
+- skills clearly demonstrated in the resume
+- required skills that are missing
+- skills that are only partially demonstrated
+- high-priority skill gaps
+- medium-priority skill gaps
+- low-priority skill gaps
+- recommended learning order
+- practical tasks for improving high-priority gaps
+- proof-of-skill actions the candidate can add to their portfolio
+- a short readiness summary
+
+Important rules:
+
+- Use only the retrieved resume evidence when deciding what skills
+  the candidate currently has.
+- Do not invent skills, projects, experience, certifications,
+  achievements, or metrics.
+- A skill should be considered missing when the job description
+  requires it and the resume evidence does not support it.
+- A skill may be considered partially demonstrated when related
+  evidence exists but the exact requirement is not clearly shown.
+- Prioritize gaps based on their importance to this exact job.
+- Keep recommendations realistic for an entry-level candidate.
+- Do not recommend learning everything at once.
+- Recommended learning order should focus on the highest-value
+  gaps first.
+- Practice tasks should be concrete and achievable.
+- Proof-of-skill actions should result in portfolio, GitHub,
+  project, deployment, or resume evidence.
+- Keep every list item concise and specific.
 """
 
-    result = model.invoke(
-        prompt
+    # --------------------------------------------------
+    # 10. Generate structured SkillGapOutput
+    # --------------------------------------------------
+
+    try:
+        result = skill_gap_model.invoke(
+            prompt
+        )
+
+    except Exception:
+        response_text = (
+            "CareerPilot could not generate the "
+            "structured skill-gap analysis right now."
+        )
+
+        return {
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
+
+    # --------------------------------------------------
+    # 11. Resolve / create Job Description row
+    # --------------------------------------------------
+
+    job_description_id = state.get(
+        "job_description_id"
     )
 
-    response_text = normalize_response(
-        result.content
+    try:
+        if job_description_id is None:
+            job_description_id = (
+                get_or_create_job_description(
+                    user_id=state["user_id"],
+                    description_text=job_description,
+                )
+            )
+
+        # --------------------------------------------------
+        # 12. Persist Skill Gap result into MySQL
+        # --------------------------------------------------
+
+        skill_gap_report_id = (
+            persist_skill_gap(
+                user_id=state["user_id"],
+                resume_id=resume_id,
+                job_description_id=job_description_id,
+                result=result,
+            )
+        )
+
+    except Exception:
+        response_text = (
+            "CareerPilot generated the skill-gap analysis "
+            "but could not save the result right now."
+        )
+
+        return {
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
+
+    # --------------------------------------------------
+    # 13. Convert structured result to predictable JSON
+    # --------------------------------------------------
+
+    response_text = result.model_dump_json(
+        indent=2
     )
+
+    # --------------------------------------------------
+    # 14. Return structured result + database IDs
+    # --------------------------------------------------
 
     return {
         "response": response_text,
+        "skill_gap_analysis": response_text,
+
+        "job_description_id": (
+            job_description_id
+        ),
+
+        "skill_gap_report_id": (
+            skill_gap_report_id
+        ),
+
         "messages": [
             AIMessage(
                 content=response_text
             )
         ],
     }
-
 
 def career_advisor_node(
     state: CareerState,
@@ -785,8 +1088,48 @@ def workflow_skill_gap_node(
         "",
     )
 
+    # --------------------------------------------------
+    # 1. Validate workflow inputs
+    # --------------------------------------------------
+
+    if not job_description.strip():
+        return {
+            "skill_gap_analysis": (
+                "CareerPilot could not run the skill-gap "
+                "workflow because no job description was provided."
+            )
+        }
+
+    if not job_match_analysis.strip():
+        return {
+            "skill_gap_analysis": (
+                "CareerPilot could not run the skill-gap "
+                "workflow because no job-match analysis was available."
+            )
+        }
+
+    resume_id = state.get(
+        "resume_id"
+    )
+
+    if resume_id is None:
+        return {
+            "skill_gap_analysis": (
+                "CareerPilot could not run the skill-gap "
+                "workflow because no resume ID was provided."
+            )
+        }
+
+    # --------------------------------------------------
+    # 2. Build structured Skill Gap prompt
+    # --------------------------------------------------
+
     prompt = f"""
 You are the Skill Gap Analysis Agent inside CareerPilot AI.
+
+Your responsibility is to identify the candidate's
+skill gaps for this exact job using the completed
+job-match analysis.
 
 JOB DESCRIPTION
 
@@ -796,31 +1139,108 @@ JOB MATCH ANALYSIS
 
 {job_match_analysis}
 
-Using this information, identify:
+Analyze the candidate's readiness for this role.
 
-1. Existing relevant skills
-2. Missing skills
-3. Partially demonstrated skills
-4. High-priority gaps
-5. Medium-priority gaps
+Evaluate:
 
-Do not introduce requirements that are not present
-in the job description.
+- existing skills demonstrated by the candidate
+- missing skills required by the job
+- partially demonstrated skills
+- high-priority gaps
+- medium-priority gaps
+- low-priority gaps
+- recommended learning order
+- practical tasks for improving the important gaps
+- proof-of-skill actions
+- a concise readiness summary
+
+Important rules:
+
+- Use the job description and job-match analysis as the evidence base.
+- Do not invent requirements that are not present in the job description.
+- Do not invent skills or experience for the candidate.
+- Prioritize gaps based on their importance to this exact role.
+- Keep recommendations realistic for an entry-level candidate.
+- Do not recommend learning everything at once.
+- Keep every list item concise, practical, and specific.
 """
 
-    result = model.invoke(
-        prompt
+    # --------------------------------------------------
+    # 3. Generate structured SkillGapOutput
+    # --------------------------------------------------
+
+    try:
+        result = skill_gap_model.invoke(
+            prompt
+        )
+
+    except Exception:
+        return {
+            "skill_gap_analysis": (
+                "CareerPilot could not generate "
+                "the structured skill-gap analysis."
+            )
+        }
+
+    # --------------------------------------------------
+    # 4. Resolve Job Description ID
+    # --------------------------------------------------
+
+    job_description_id = state.get(
+        "job_description_id"
     )
 
-    analysis = normalize_response(
-        result.content
+    try:
+        if job_description_id is None:
+            job_description_id = (
+                get_or_create_job_description(
+                    user_id=state["user_id"],
+                    description_text=job_description,
+                )
+            )
+
+        # --------------------------------------------------
+        # 5. Persist Skill Gap result
+        # --------------------------------------------------
+
+        skill_gap_report_id = (
+            persist_skill_gap(
+                user_id=state["user_id"],
+                resume_id=resume_id,
+                job_description_id=job_description_id,
+                result=result,
+            )
+        )
+
+    except Exception:
+        return {
+            "skill_gap_analysis": (
+                "CareerPilot generated the skill-gap "
+                "analysis but could not save it."
+            )
+        }
+
+    # --------------------------------------------------
+    # 6. Convert structured result to JSON
+    # --------------------------------------------------
+
+    analysis = result.model_dump_json(
+        indent=2
     )
+
+    # --------------------------------------------------
+    # 7. Return structured output + DB IDs
+    # --------------------------------------------------
 
     return {
         "skill_gap_analysis": analysis,
+        "job_description_id": (
+            job_description_id
+        ),
+        "skill_gap_report_id": (
+            skill_gap_report_id
+        ),
     }
-
-
 def career_planner_node(
     state: CareerState,
 ):
@@ -843,8 +1263,72 @@ def career_planner_node(
         "",
     )
 
+    # --------------------------------------------------
+    # 1. Validate workflow inputs
+    # --------------------------------------------------
+
+    if not job_description.strip():
+        response_text = (
+            "Please provide the job description "
+            "so I can create a role-specific career plan."
+        )
+
+        return {
+            "career_plan": response_text,
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
+
+    if not job_match_analysis.strip():
+        response_text = (
+            "CareerPilot could not find a completed "
+            "job-match analysis for this workflow."
+        )
+
+        return {
+            "career_plan": response_text,
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
+
+    if not skill_gap_analysis.strip():
+        response_text = (
+            "CareerPilot could not find a completed "
+            "skill-gap analysis for this workflow."
+        )
+
+        return {
+            "career_plan": response_text,
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
+
+    # --------------------------------------------------
+    # 2. Build structured career planning prompt
+    # --------------------------------------------------
+
     prompt = f"""
-You are the Career Planning Agent inside CareerPilot AI.
+You are the Career Planning Specialist inside CareerPilot AI.
+
+Your responsibility is to create a realistic, prioritized,
+and actionable preparation roadmap for an entry-level candidate.
+
+Use the candidate's profile, the job description,
+the job-match analysis, and the skill-gap analysis.
+
+USER PROFILE
 
 {user_context}
 
@@ -860,36 +1344,118 @@ SKILL GAP ANALYSIS
 
 {skill_gap_analysis}
 
-Create a practical preparation roadmap for this candidate.
+Create a practical career preparation roadmap.
 
-Return:
+Evaluate and return:
 
-1. Current Readiness Summary
-2. Top 3 Priorities
-3. Recommended Learning Order
-4. Practical Tasks
-5. Portfolio Evidence to Build
-6. Interview Preparation Focus
-7. 30-Day Action Plan
+- a concise readiness summary
+- the candidate's top priorities
+- the recommended learning order
+- practical learning and implementation tasks
+- portfolio evidence the candidate should build
+- interview preparation focus
+- a realistic 30-day action plan
 
-Rules:
+Important rules:
 
-- Do not recommend skills the candidate already has unless
-  deeper knowledge is required.
-- Focus on gaps relevant to this exact role.
-- Keep the plan realistic for an entry-level candidate.
+- Base the roadmap on the supplied job-match and skill-gap evidence.
+- Do not invent skills, experience, projects, achievements,
+  certifications, or metrics.
+- Do not recommend skills the candidate already demonstrates
+  unless deeper knowledge is clearly required for the role.
+- Prioritize the highest-value gaps first.
+- Keep the roadmap realistic for an entry-level candidate.
+- Do not overload the candidate with unnecessary technologies.
+- Practical tasks should create visible proof of skill.
+- Portfolio actions should result in useful GitHub, project,
+  deployment, or resume evidence.
+- Interview preparation should focus on the candidate's actual
+  target role and identified gaps.
+- The 30-day plan should be sequential, achievable,
+  and focused on job readiness.
+- Keep every list item concise and actionable.
 """
 
-    result = model.invoke(
-        prompt
+    # --------------------------------------------------
+    # 3. Generate structured CareerPlanOutput
+    # --------------------------------------------------
+
+    try:
+        result = career_plan_model.invoke(
+            prompt
+        )
+
+    except Exception:
+        response_text = (
+            "CareerPilot could not generate the "
+            "structured career plan right now."
+        )
+
+        return {
+            "career_plan": response_text,
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
+
+    # --------------------------------------------------
+    # 4. Read related persisted workflow IDs
+    # --------------------------------------------------
+
+    job_match_result_id = state.get(
+        "job_match_result_id"
     )
 
-    career_plan = normalize_response(
-        result.content
+    skill_gap_report_id = state.get(
+        "skill_gap_report_id"
     )
+
+    # --------------------------------------------------
+    # 5. Persist Career Plan into MySQL
+    # --------------------------------------------------
+
+    try:
+        career_plan_id = persist_career_plan(
+            user_id=state["user_id"],
+            job_match_result_id=job_match_result_id,
+            skill_gap_report_id=skill_gap_report_id,
+            result=result,
+        )
+
+    except Exception:
+        response_text = (
+            "CareerPilot generated the career plan "
+            "but could not save it right now."
+        )
+
+        return {
+            "career_plan": response_text,
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
+
+    # --------------------------------------------------
+    # 6. Convert structured result to JSON
+    # --------------------------------------------------
+
+    career_plan = result.model_dump_json(
+        indent=2
+    )
+
+    # --------------------------------------------------
+    # 7. Return structured result + DB ID
+    # --------------------------------------------------
 
     return {
         "career_plan": career_plan,
+        "career_plan_id": career_plan_id,
         "response": career_plan,
         "messages": [
             AIMessage(
@@ -897,7 +1463,6 @@ Rules:
             )
         ],
     }
-
 
 def job_match_advisor_node(
     state: CareerState,
@@ -915,48 +1480,16 @@ def job_match_advisor_node(
         "",
     )
 
+    # --------------------------------------------------
+    # 1. Validate resume availability
+    # --------------------------------------------------
+
     if not resume_exists(
         thread_id
     ):
-        return {
-            "response": (
-                "I do not have your resume "
-                "indexed yet. "
-                "Please upload your resume first."
-            )
-        }
-
-    if not job_description.strip():
-        return {
-            "response": (
-                "Please provide the job description "
-                "so I can compare it with your resume."
-            )
-        }
-
-    vector_store = (
-        get_resume_vector_store(
-            thread_id
-        )
-    )
-
-    filters = get_resume_filters(
-        state
-    )
-
-    retrieved_docs = search_resume(
-        vector_store,
-        job_description,
-        k=5,
-        user_id=filters["user_id"],
-        resume_id=filters["resume_id"],
-    )
-
-    if not retrieved_docs:
         response_text = (
-            "I could not find resume evidence "
-            "owned by the authenticated user "
-            "for the selected resume."
+            "I do not have your resume indexed yet. "
+            "Please upload your resume first."
         )
 
         return {
@@ -968,13 +1501,116 @@ def job_match_advisor_node(
             ],
         }
 
+    # --------------------------------------------------
+    # 2. Validate job description
+    # --------------------------------------------------
+
+    if not job_description.strip():
+        response_text = (
+            "Please provide the job description "
+            "so I can compare it with your resume."
+        )
+
+        return {
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
+
+    # --------------------------------------------------
+    # 3. Validate resume ID
+    # --------------------------------------------------
+
+    resume_id = state.get(
+        "resume_id"
+    )
+
+    if resume_id is None:
+        response_text = (
+            "CareerPilot could not run the job-match "
+            "analysis because no resume ID was provided."
+        )
+
+        return {
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
+
+    # --------------------------------------------------
+    # 4. Open persistent Chroma collection
+    # --------------------------------------------------
+
+    vector_store = get_resume_vector_store(
+        thread_id
+    )
+
+    # --------------------------------------------------
+    # 5. Build authenticated ownership filters
+    # --------------------------------------------------
+
+    filters = get_resume_filters(
+        state
+    )
+
+    # --------------------------------------------------
+    # 6. Retrieve resume evidence
+    # --------------------------------------------------
+
+    retrieved_docs = search_resume(
+        vector_store,
+        job_description,
+        k=5,
+        user_id=filters["user_id"],
+        resume_id=filters["resume_id"],
+    )
+
+    # --------------------------------------------------
+    # 7. Handle missing / unauthorized evidence
+    # --------------------------------------------------
+
+    if not retrieved_docs:
+        response_text = (
+            "I could not find resume evidence "
+            "owned by your account for the selected resume."
+        )
+
+        return {
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
+
+    # --------------------------------------------------
+    # 8. Build grounded resume context
+    # --------------------------------------------------
+
     resume_context = "\n\n".join(
         doc.page_content
         for doc in retrieved_docs
     )
 
+    # --------------------------------------------------
+    # 9. Structured Job Match prompt
+    # --------------------------------------------------
+
     prompt = f"""
 You are the Job Match Specialist inside CareerPilot AI.
+
+Your responsibility is to compare the candidate's resume evidence
+against the provided job description and return an evidence-grounded
+job-match assessment.
+
+USER PROFILE
 
 {user_context}
 
@@ -986,40 +1622,118 @@ RETRIEVED RESUME EVIDENCE
 
 {resume_context}
 
-Your task is to compare the candidate's resume with the job description.
-
-Return:
-
-1. Overall Match Score from 0 to 100
-2. Strongly Matched Requirements
-3. Partially Matched Requirements
-4. Missing or Weak Requirements
-5. Resume Improvements
-6. Priority Action Plan
-
-Rules:
-
-- Use only evidence from the retrieved resume context.
-- Do not invent experience.
-- Do not claim the candidate has skills that are not present.
-- Explain the reasoning behind the match score.
-- Prioritize realistic improvements for an entry-level candidate.
-
-User request:
+CURRENT USER REQUEST
 
 {user_message}
+
+Analyze the candidate's resume against the job description.
+
+Evaluate:
+
+- overall match score from 0 to 100
+- strongly matched requirements
+- partially matched requirements
+- missing skills or requirements
+- resume improvements
+- priority actions
+
+Important rules:
+
+- Use only the retrieved resume evidence when deciding what the candidate has.
+- Do not invent experience, projects, certifications, technologies, or achievements.
+- Do not claim that the candidate knows a skill unless the resume evidence supports it.
+- A skill may be considered partially matched when related evidence exists but the exact requirement is not clearly demonstrated.
+- Keep every list item concise, specific, and useful.
+- Resume improvements must describe realistic changes the candidate can make.
+- Priority actions should focus on the most important gaps for this specific role.
+- The match score must reflect the strength of actual evidence rather than general similarity.
+- Do not exaggerate the candidate's readiness.
 """
 
-    result = model.invoke(
-        prompt
+    # --------------------------------------------------
+    # 10. Generate structured JobMatchOutput
+    # --------------------------------------------------
+
+    try:
+        result = job_match_model.invoke(
+            prompt
+        )
+
+    except Exception:
+        response_text = (
+            "CareerPilot could not generate the "
+            "structured job-match analysis right now."
+        )
+
+        return {
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
+
+    # --------------------------------------------------
+    # 11. Persist JD + Job Match result into MySQL
+    # --------------------------------------------------
+
+    try:
+        job_description_id = (
+            get_or_create_job_description(
+                user_id=state["user_id"],
+                description_text=job_description,
+            )
+        )
+
+        job_match_result_id = (
+            persist_job_match(
+                user_id=state["user_id"],
+                resume_id=resume_id,
+                job_description_id=job_description_id,
+                result=result,
+            )
+        )
+
+    except Exception:
+        response_text = (
+            "CareerPilot generated the job-match analysis "
+            "but could not save the result right now."
+        )
+
+        return {
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
+
+    # --------------------------------------------------
+    # 12. Convert structured result to JSON
+    # --------------------------------------------------
+
+    response_text = result.model_dump_json(
+        indent=2
     )
 
-    response_text = normalize_response(
-        result.content
-    )
+    # --------------------------------------------------
+    # 13. Return result + database IDs to LangGraph state
+    # --------------------------------------------------
 
     return {
         "response": response_text,
+        "job_match_analysis": response_text,
+
+        "job_description_id": (
+            job_description_id
+        ),
+
+        "job_match_result_id": (
+            job_match_result_id
+        ),
+
         "messages": [
             AIMessage(
                 content=response_text

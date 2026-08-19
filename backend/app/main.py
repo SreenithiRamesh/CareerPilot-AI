@@ -144,6 +144,10 @@ def chat(
         "intent": "",
         "response": "",
         "thread_id": request.thread_id,
+        "job_description_id": None,
+        "job_match_result_id": None,
+        "skill_gap_report_id": None,
+        "career_plan_id": None,
 
         # Authenticated ownership information
         "user_id": current_user.id,
