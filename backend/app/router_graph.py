@@ -1,19 +1,21 @@
 import os
-from typing import TypedDict, Literal
+from typing import Annotated, Literal, TypedDict
 
 from dotenv import load_dotenv
-from langgraph.checkpoint.memory import InMemorySaver
+from langchain_core.messages import (
+    AIMessage,
+    AnyMessage,
+    HumanMessage,
+)
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langgraph.graph import StateGraph, START, END
-
-from typing import Annotated
-from langchain_core.messages import AnyMessage, HumanMessage, AIMessage
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 
 from app.resume_rag import (
     get_resume_vector_store,
-    search_resume,
     resume_exists,
+    search_resume,
 )
 
 
@@ -30,7 +32,11 @@ class CareerState(TypedDict):
     message: str
     intent: str
     response: str
+
     thread_id: str
+    user_id: int
+    resume_id: int | None
+
     job_description: str
     job_match_analysis: str
     skill_gap_analysis: str
@@ -43,24 +49,43 @@ class CareerState(TypedDict):
     target_role: str
     career_goal: str
 
-    messages: Annotated[list[AnyMessage], add_messages]
+    messages: Annotated[
+        list[AnyMessage],
+        add_messages,
+    ]
 
-def build_conversation_context(state: CareerState) -> str:
+
+def build_conversation_context(
+    state: CareerState,
+) -> str:
     lines = []
 
     for msg in state.get("messages", []):
         if isinstance(msg, HumanMessage):
-            lines.append(f"User: {msg.content}")
+            lines.append(
+                f"User: {msg.content}"
+            )
+
         elif isinstance(msg, AIMessage):
-            lines.append(f"Assistant: {msg.content}")
+            lines.append(
+                f"Assistant: {msg.content}"
+            )
 
     if not lines:
         return "No previous conversation."
 
-    return "\n".join(lines) 
+    return "\n".join(lines)
 
-def build_user_context(state: CareerState) -> str:
-    skills = ", ".join(state.get("skills", [])) or "Not provided"
+
+def build_user_context(
+    state: CareerState,
+) -> str:
+    skills = (
+        ", ".join(
+            state.get("skills", [])
+        )
+        or "Not provided"
+    )
 
     return f"""
 USER PROFILE
@@ -81,19 +106,55 @@ of that skill is genuinely useful.
 """
 
 
-def normalize_response(content) -> str:
+def normalize_response(
+    content,
+) -> str:
     if isinstance(content, list):
         text_parts = [
             item.get("text", "")
             for item in content
-            if isinstance(item, dict) and item.get("type") == "text"
+            if (
+                isinstance(item, dict)
+                and item.get("type") == "text"
+            )
         ]
 
         return "\n".join(text_parts)
 
     return str(content)
 
-def intent_router_node(state: CareerState):
+
+def get_resume_filters(
+    state: CareerState,
+) -> dict:
+    """
+    Build authenticated Chroma filters.
+
+    user_id is always required.
+
+    resume_id is included when the request identifies
+    a specific resume.
+    """
+
+    user_id = str(
+        state["user_id"]
+    )
+
+    resume_id = (
+        str(state["resume_id"])
+        if state.get("resume_id")
+        else None
+    )
+
+    return {
+        "user_id": user_id,
+        "resume_id": resume_id,
+    }
+
+
+def intent_router_node(
+    state: CareerState,
+):
     message = state["message"].lower()
 
     job_match_keywords = [
@@ -115,25 +176,27 @@ def intent_router_node(state: CareerState):
         "am i suitable",
         "how well my resume matches",
     ]
-    
+
     career_plan_keywords = [
-    "career plan",
-    "readiness plan",
-    "prepare me for this role",
-    "what should i do for this role",
-    "roadmap for this job",
-    "analyze my readiness",
-    "full analysis",
+        "career plan",
+        "readiness plan",
+        "prepare me for this role",
+        "what should i do for this role",
+        "roadmap for this job",
+        "analyze my readiness",
+        "full analysis",
     ]
+
     skill_gap_keywords = [
-    "skill gap",
-    "skills gap",
-    "missing skills",
-    "what skills am i missing",
-    "what should i learn for this job",
-    "skills i need for this role",
-    "gap analysis",
+        "skill gap",
+        "skills gap",
+        "missing skills",
+        "what skills am i missing",
+        "what should i learn for this job",
+        "skills i need for this role",
+        "gap analysis",
     ]
+
     resume_keywords = [
         "resume",
         "cv",
@@ -151,29 +214,44 @@ def intent_router_node(state: CareerState):
         "interview questions",
     ]
 
-    # IMPORTANT:
-    # Job matching must be checked before normal resume requests.
-    if any(keyword in message for keyword in career_plan_keywords):
+    # More-specific intents must be checked first.
+    if any(
+        keyword in message
+        for keyword in career_plan_keywords
+    ):
         intent = "career_plan"
-    elif any(keyword in message for keyword in job_match_keywords):
+
+    elif any(
+        keyword in message
+        for keyword in job_match_keywords
+    ):
         intent = "job_match"
 
-    
-    elif any(keyword in message for keyword in skill_gap_keywords):
-        intent = "skill_gap"    
+    elif any(
+        keyword in message
+        for keyword in skill_gap_keywords
+    ):
+        intent = "skill_gap"
 
-    elif any(keyword in message for keyword in resume_keywords):
+    elif any(
+        keyword in message
+        for keyword in resume_keywords
+    ):
         intent = "resume"
 
-    elif any(keyword in message for keyword in interview_keywords):
+    elif any(
+        keyword in message
+        for keyword in interview_keywords
+    ):
         intent = "interview"
 
     else:
         intent = "career"
 
     return {
-        "intent": intent
+        "intent": intent,
     }
+
 
 def route_intent(
     state: CareerState,
@@ -189,8 +267,10 @@ def route_intent(
 
     if intent == "career":
         return "career_advisor"
+
     if intent == "career_plan":
         return "career_plan_start"
+
     if intent == "resume":
         return "resume_advisor"
 
@@ -205,30 +285,40 @@ def route_intent(
 
     return "career_advisor"
 
-def career_plan_start_node(state: CareerState):
+
+def career_plan_start_node(
+    state: CareerState,
+):
     return {
         "job_match_analysis": "",
         "skill_gap_analysis": "",
         "career_plan": "",
-    } 
-
-def workflow_job_match_node(state: CareerState):
-    user_context = build_user_context(state)
-    thread_id = state["thread_id"]
-    job_description = state.get("job_description", "")
-
-    vector_store = get_resume_vector_store(thread_id)
-
-    if not resume_exists(thread_id):
-        return {
-        "job_match_analysis": (
-            "Resume is not indexed for this conversation."
-        )
     }
 
-    vector_store = get_resume_vector_store(
-        thread_id
+
+def workflow_job_match_node(
+    state: CareerState,
+):
+    user_context = build_user_context(
+        state
     )
+
+    thread_id = state["thread_id"]
+
+    job_description = state.get(
+        "job_description",
+        "",
+    )
+
+    if not resume_exists(
+        thread_id
+    ):
+        return {
+            "job_match_analysis": (
+                "Resume is not indexed "
+                "for this conversation."
+            )
+        }
 
     if not job_description.strip():
         return {
@@ -237,11 +327,32 @@ def workflow_job_match_node(state: CareerState):
             )
         }
 
+    vector_store = (
+        get_resume_vector_store(
+            thread_id
+        )
+    )
+
+    filters = get_resume_filters(
+        state
+    )
+
     retrieved_docs = search_resume(
         vector_store,
         job_description,
         k=5,
+        user_id=filters["user_id"],
+        resume_id=filters["resume_id"],
     )
+
+    if not retrieved_docs:
+        return {
+            "job_match_analysis": (
+                "No resume evidence was found "
+                "for the authenticated user "
+                "and selected resume."
+            )
+        }
 
     resume_context = "\n\n".join(
         doc.page_content
@@ -273,46 +384,88 @@ Return:
 Do not invent experience.
 """
 
-    result = model.invoke(prompt)
+    result = model.invoke(
+        prompt
+    )
 
-    analysis = normalize_response(result.content)
+    analysis = normalize_response(
+        result.content
+    )
 
     return {
         "job_match_analysis": analysis,
     }
-def skill_gap_advisor_node(state: CareerState):
+
+
+def skill_gap_advisor_node(
+    state: CareerState,
+):
     user_message = state["message"]
-    user_context = build_user_context(state)
-    thread_id = state["thread_id"]
-    job_description = state.get("job_description", "")
 
-    vector_store = get_resume_vector_store(thread_id)
-
-    if not resume_exists(thread_id):
-        return {
-        "response": (
-            "I do not have your resume indexed yet. "
-            "Please upload your resume first."
-        )
-    }
-
-    vector_store = get_resume_vector_store(
-        thread_id
+    user_context = build_user_context(
+        state
     )
+
+    thread_id = state["thread_id"]
+
+    job_description = state.get(
+        "job_description",
+        "",
+    )
+
+    if not resume_exists(
+        thread_id
+    ):
+        return {
+            "response": (
+                "I do not have your resume "
+                "indexed yet. "
+                "Please upload your resume first."
+            )
+        }
 
     if not job_description.strip():
         return {
             "response": (
-                "Please provide the job description so I can identify "
-                "your skill gaps for that role."
+                "Please provide the job description "
+                "so I can identify your skill gaps "
+                "for that role."
             )
         }
+
+    vector_store = (
+        get_resume_vector_store(
+            thread_id
+        )
+    )
+
+    filters = get_resume_filters(
+        state
+    )
 
     retrieved_docs = search_resume(
         vector_store,
         job_description,
         k=5,
+        user_id=filters["user_id"],
+        resume_id=filters["resume_id"],
     )
+
+    if not retrieved_docs:
+        response_text = (
+            "I could not find resume evidence "
+            "for the authenticated user and "
+            "selected resume."
+        )
+
+        return {
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
 
     resume_context = "\n\n".join(
         doc.page_content
@@ -362,20 +515,38 @@ User request:
 {user_message}
 """
 
-    result = model.invoke(prompt)
+    result = model.invoke(
+        prompt
+    )
 
-    response_text = normalize_response(result.content)
+    response_text = normalize_response(
+        result.content
+    )
 
     return {
         "response": response_text,
         "messages": [
-            AIMessage(content=response_text)
+            AIMessage(
+                content=response_text
+            )
         ],
     }
-def career_advisor_node(state: CareerState):
+
+
+def career_advisor_node(
+    state: CareerState,
+):
     user_message = state["message"]
-    user_context = build_user_context(state)
-    conversation_context = build_conversation_context(state)
+
+    user_context = build_user_context(
+        state
+    )
+
+    conversation_context = (
+        build_conversation_context(
+            state
+        )
+    )
 
     prompt = f"""
 You are the Career Guidance Specialist inside CareerPilot AI.
@@ -418,40 +589,79 @@ Current user request:
 Provide concise, practical, personalized career guidance.
 """
 
-    result = model.invoke(prompt)
+    result = model.invoke(
+        prompt
+    )
 
-    response_text = normalize_response(result.content)
+    response_text = normalize_response(
+        result.content
+    )
 
     return {
         "response": response_text,
         "messages": [
-            AIMessage(content=response_text)
+            AIMessage(
+                content=response_text
+            )
         ],
     }
-def resume_advisor_node(state: CareerState):
+
+
+def resume_advisor_node(
+    state: CareerState,
+):
     user_message = state["message"]
-    user_context = build_user_context(state)
+
+    user_context = build_user_context(
+        state
+    )
+
     thread_id = state["thread_id"]
 
-    vector_store = get_resume_vector_store(thread_id)
-
-    if not resume_exists(thread_id):
+    if not resume_exists(
+        thread_id
+    ):
         return {
-        "response": (
-            "I do not have a resume indexed for this conversation yet. "
-            "Please upload your resume PDF first."
-        )
-    }
+            "response": (
+                "I do not have a resume "
+                "indexed for this conversation yet. "
+                "Please upload your resume PDF first."
+            )
+        }
 
-    vector_store = get_resume_vector_store(
-    thread_id
+    vector_store = (
+        get_resume_vector_store(
+            thread_id
+        )
+    )
+
+    filters = get_resume_filters(
+        state
     )
 
     retrieved_docs = search_resume(
         vector_store,
         user_message,
         k=3,
+        user_id=filters["user_id"],
+        resume_id=filters["resume_id"],
     )
+
+    if not retrieved_docs:
+        response_text = (
+            "I could not find resume content "
+            "owned by your account for the "
+            "selected resume."
+        )
+
+        return {
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
 
     resume_context = "\n\n".join(
         doc.page_content
@@ -486,20 +696,32 @@ User request:
 Provide practical, specific, evidence-grounded resume guidance.
 """
 
-    result = model.invoke(prompt)
+    result = model.invoke(
+        prompt
+    )
 
-    response_text = normalize_response(result.content)
+    response_text = normalize_response(
+        result.content
+    )
 
     return {
         "response": response_text,
         "messages": [
-            AIMessage(content=response_text)
+            AIMessage(
+                content=response_text
+            )
         ],
     }
 
-def interview_advisor_node(state: CareerState):
+
+def interview_advisor_node(
+    state: CareerState,
+):
     user_message = state["message"]
-    user_context = build_user_context(state)
+
+    user_context = build_user_context(
+        state
+    )
 
     prompt = f"""
 You are the Interview Preparation Specialist inside CareerPilot AI.
@@ -532,14 +754,32 @@ User request:
 Provide concise and actionable interview preparation.
 """
 
-    result = model.invoke(prompt)
+    result = model.invoke(
+        prompt
+    )
+
+    response_text = normalize_response(
+        result.content
+    )
 
     return {
-        "response": normalize_response(result.content),
+        "response": response_text,
+        "messages": [
+            AIMessage(
+                content=response_text
+            )
+        ],
     }
 
-def workflow_skill_gap_node(state: CareerState):
-    job_description = state.get("job_description", "")
+
+def workflow_skill_gap_node(
+    state: CareerState,
+):
+    job_description = state.get(
+        "job_description",
+        "",
+    )
+
     job_match_analysis = state.get(
         "job_match_analysis",
         "",
@@ -568,17 +808,25 @@ Do not introduce requirements that are not present
 in the job description.
 """
 
-    result = model.invoke(prompt)
+    result = model.invoke(
+        prompt
+    )
 
-    analysis = normalize_response(result.content)
+    analysis = normalize_response(
+        result.content
+    )
 
     return {
         "skill_gap_analysis": analysis,
-    } 
+    }
 
 
-def career_planner_node(state: CareerState):
-    user_context = build_user_context(state)
+def career_planner_node(
+    state: CareerState,
+):
+    user_context = build_user_context(
+        state
+    )
 
     job_description = state.get(
         "job_description",
@@ -632,52 +880,93 @@ Rules:
 - Keep the plan realistic for an entry-level candidate.
 """
 
-    result = model.invoke(prompt)
+    result = model.invoke(
+        prompt
+    )
 
-    career_plan = normalize_response(result.content)
+    career_plan = normalize_response(
+        result.content
+    )
 
     return {
         "career_plan": career_plan,
         "response": career_plan,
         "messages": [
-            AIMessage(content=career_plan)
+            AIMessage(
+                content=career_plan
+            )
         ],
     }
 
 
-def job_match_advisor_node(state: CareerState):
+def job_match_advisor_node(
+    state: CareerState,
+):
     user_message = state["message"]
-    user_context = build_user_context(state)
-    thread_id = state["thread_id"]
-    job_description = state.get("job_description", "")
 
-    vector_store = get_resume_vector_store(thread_id)
-
-    if not resume_exists(thread_id):
-        return {
-        "response": (
-            "I do not have your resume indexed yet. "
-            "Please upload your resume first."
-        )
-    }
-
-    vector_store = get_resume_vector_store(
-    thread_id
+    user_context = build_user_context(
+        state
     )
+
+    thread_id = state["thread_id"]
+
+    job_description = state.get(
+        "job_description",
+        "",
+    )
+
+    if not resume_exists(
+        thread_id
+    ):
+        return {
+            "response": (
+                "I do not have your resume "
+                "indexed yet. "
+                "Please upload your resume first."
+            )
+        }
 
     if not job_description.strip():
         return {
             "response": (
-                "Please provide the job description so I can compare "
-                "it with your resume."
+                "Please provide the job description "
+                "so I can compare it with your resume."
             )
         }
+
+    vector_store = (
+        get_resume_vector_store(
+            thread_id
+        )
+    )
+
+    filters = get_resume_filters(
+        state
+    )
 
     retrieved_docs = search_resume(
         vector_store,
         job_description,
         k=5,
+        user_id=filters["user_id"],
+        resume_id=filters["resume_id"],
     )
+
+    if not retrieved_docs:
+        response_text = (
+            "I could not find resume evidence "
+            "owned by the authenticated user "
+            "for the selected resume."
+        )
+
+        return {
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
 
     resume_context = "\n\n".join(
         doc.page_content
@@ -721,18 +1010,28 @@ User request:
 {user_message}
 """
 
-    result = model.invoke(prompt)
+    result = model.invoke(
+        prompt
+    )
 
-    response_text = normalize_response(result.content)
+    response_text = normalize_response(
+        result.content
+    )
 
     return {
         "response": response_text,
         "messages": [
-            AIMessage(content=response_text)
+            AIMessage(
+                content=response_text
+            )
         ],
     }
 
-builder = StateGraph(CareerState)
+
+builder = StateGraph(
+    CareerState
+)
+
 
 builder.add_node(
     "career_plan_start",
@@ -752,15 +1051,18 @@ builder.add_node(
 builder.add_node(
     "career_planner",
     career_planner_node,
-) 
+)
+
 builder.add_node(
     "intent_router",
     intent_router_node,
 )
+
 builder.add_node(
     "job_match_advisor",
     job_match_advisor_node,
 )
+
 builder.add_node(
     "career_advisor",
     career_advisor_node,
@@ -775,28 +1077,36 @@ builder.add_node(
     "interview_advisor",
     interview_advisor_node,
 )
+
 builder.add_node(
     "skill_gap_advisor",
     skill_gap_advisor_node,
 )
 
+
 builder.add_edge(
     START,
     "intent_router",
 )
-builder.add_edge(
-    "job_match_advisor",
-    END,
-)
-builder.add_edge(
-    "skill_gap_advisor",
-    END,
-)
+
 
 builder.add_conditional_edges(
     "intent_router",
     route_intent,
 )
+
+
+builder.add_edge(
+    "job_match_advisor",
+    END,
+)
+
+builder.add_edge(
+    "skill_gap_advisor",
+    END,
+)
+
+
 builder.add_edge(
     "career_plan_start",
     "workflow_job_match",
@@ -817,6 +1127,7 @@ builder.add_edge(
     END,
 )
 
+
 builder.add_edge(
     "career_advisor",
     END,
@@ -831,7 +1142,10 @@ builder.add_edge(
     "interview_advisor",
     END,
 )
+
+
 memory = InMemorySaver()
+
 
 career_router_graph = builder.compile(
     checkpointer=memory

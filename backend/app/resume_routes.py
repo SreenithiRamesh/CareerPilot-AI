@@ -1,8 +1,18 @@
 from io import BytesIO
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    UploadFile,
+)
 from pypdf import PdfReader
+from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user
+from app.database import get_db
+from app.models import Resume, User
 from app.resume_rag import (
     save_resume_vector_store,
     split_resume_text,
@@ -11,11 +21,16 @@ from app.resume_rag import (
 
 router = APIRouter()
 
+# Maximum allowed resume size: 5 MB
+MAX_RESUME_SIZE = 5 * 1024 * 1024
+
 
 @router.post("/api/resume/upload")
 async def upload_resume(
     thread_id: str,
     file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     # 1. Validate file type
     if file.content_type != "application/pdf":
@@ -33,11 +48,18 @@ async def upload_resume(
             detail="Uploaded PDF is empty.",
         )
 
+    # 3. Validate file size
+    if len(contents) > MAX_RESUME_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail="Resume PDF must be 5 MB or smaller.",
+        )
+
     try:
-        # 3. Read PDF
+        # 4. Read PDF
         reader = PdfReader(BytesIO(contents))
 
-        # 4. Extract text from every page
+        # 5. Extract text from every page
         extracted_pages = []
 
         for page_number, page in enumerate(
@@ -52,8 +74,10 @@ async def upload_resume(
                     f"{page_text.strip()}"
                 )
 
-        # 5. Combine pages
-        extracted_text = "\n\n".join(extracted_pages)
+        # 6. Combine extracted pages
+        extracted_text = "\n\n".join(
+            extracted_pages
+        )
 
     except Exception as exc:
         raise HTTPException(
@@ -61,14 +85,14 @@ async def upload_resume(
             detail="Could not read the uploaded PDF.",
         ) from exc
 
-    # 6. Validate extracted text
+    # 7. Validate extracted text
     if not extracted_text.strip():
         raise HTTPException(
             status_code=422,
             detail="No readable text was found in the PDF.",
         )
 
-    # 7. Split resume into chunks
+    # 8. Split resume into chunks
     chunks = split_resume_text(
         extracted_text
     )
@@ -76,22 +100,84 @@ async def upload_resume(
     if not chunks:
         raise HTTPException(
             status_code=422,
-            detail="Resume could not be split into searchable chunks.",
+            detail=(
+                "Resume could not be split "
+                "into searchable chunks."
+            ),
         )
 
-    # 8. Create embeddings + vector store
-    #    and associate this resume with thread_id
-    save_resume_vector_store(
-        thread_id=thread_id,
-        chunks=chunks,
+    # 9. Create resume metadata record in MySQL
+    resume = Resume(
+        user_id=current_user.id,
+        original_filename=file.filename,
+        s3_object_key=None,
+        processing_status="processing",
+        vector_collection_id=None,
     )
 
-    # 9. Return processing result
+    db.add(resume)
+
+    try:
+        db.commit()
+        db.refresh(resume)
+
+    except Exception as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail="Could not create resume record.",
+        ) from exc
+
+    try:
+        # 10. Create embeddings and persist vectors.
+        #
+        # The authenticated user ID and database-generated
+        # resume ID are passed to the vector layer so the
+        # chunks can be associated with their owner.
+        save_resume_vector_store(
+            thread_id=thread_id,
+            chunks=chunks,
+            user_id=str(current_user.id),
+            resume_id=str(resume.id),
+        )
+
+        # 11. Mark resume processing as completed
+        resume.processing_status = "completed"
+
+        resume.vector_collection_id = (
+            f"resume_{thread_id}"
+        )
+
+        db.commit()
+        db.refresh(resume)
+
+    except Exception as exc:
+        db.rollback()
+
+        # Try to record the processing failure.
+        try:
+            resume.processing_status = "failed"
+            db.commit()
+        except Exception:
+            db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail="Resume indexing failed.",
+        ) from exc
+
+    # 12. Return processing result
     return {
+        "resume_id": resume.id,
+        "user_id": current_user.id,
         "thread_id": thread_id,
         "filename": file.filename,
         "pages": len(reader.pages),
         "characters": len(extracted_text),
         "chunks_count": len(chunks),
-        "message": "Resume processed and indexed successfully.",
+        "processing_status": resume.processing_status,
+        "message": (
+            "Resume processed and indexed successfully."
+        ),
     }
