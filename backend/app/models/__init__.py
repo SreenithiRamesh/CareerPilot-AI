@@ -6,6 +6,7 @@ from app.models.job_description import JobDescription
 from app.models.job_match_result import JobMatchResult
 from app.models.skill_gap_report import SkillGapReport
 from app.models.career_plan import CareerPlan
+from app.models.mock_interview_session import MockInterviewSession
 
 
 __all__ = [

@@ -45,6 +45,34 @@ function Login() {
         form
       );
 
+
+      // Clear workspace data from any previous account/session.
+      localStorage.removeItem(
+        "careerpilot_thread_id"
+      );
+
+      localStorage.removeItem(
+        "careerpilot_active_resume"
+      );
+
+      localStorage.removeItem(
+        "careerpilot_resume_id"
+      );
+
+      localStorage.removeItem(
+        "careerpilot_latest_job_match"
+      );
+
+      localStorage.removeItem(
+        "careerpilot_latest_skill_gap"
+      );
+
+      localStorage.removeItem(
+        "careerpilot_latest_career_plan"
+      );
+
+
+      // Store the newly authenticated account.
       localStorage.setItem(
         "careerpilot_token",
         response.data.access_token
@@ -52,10 +80,18 @@ function Login() {
 
       localStorage.setItem(
         "careerpilot_user",
-        JSON.stringify(response.data.user)
+        JSON.stringify(
+          response.data.user
+        )
       );
 
-      navigate("/dashboard");
+
+      navigate(
+        "/dashboard",
+        {
+          replace: true,
+        }
+      );
 
     } catch (err) {
       setError(

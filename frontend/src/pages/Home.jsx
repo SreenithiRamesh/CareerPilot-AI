@@ -1,9 +1,11 @@
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   CheckCircle2,
   FileSearch,
   Gauge,
   Navigation,
+  Plus,
   Route,
   Sparkles,
 } from "lucide-react";
@@ -61,6 +63,13 @@ function Home() {
             >
               For freshers
             </a>
+
+            <a
+              href="#faq"
+              className="transition hover:text-midnight"
+            >
+              FAQ
+            </a>
           </nav>
 
 
@@ -86,27 +95,77 @@ function Home() {
 
       {/* ================= HERO ================= */}
 
-      <section className="bg-midnight text-white">
-        <div className="mx-auto grid min-h-[650px] max-w-[1440px] items-center gap-10 px-4 py-20 sm:px-6 sm:py-24 lg:grid-cols-[1.08fr_0.92fr] lg:px-8 lg:py-28 xl:gap-14 xl:px-10">
+      <section className="relative overflow-hidden bg-midnight text-white">
 
-          <div className="max-w-[760px]">
-            <p className="text-xs font-bold tracking-[0.16em] text-brand-accent">
+        <style>{`
+          @media (prefers-reduced-motion: no-preference) {
+            .cp-reveal-row {
+              opacity: 0;
+              animation: cpFadeSlideIn 0.55s ease forwards;
+            }
+            .cp-reveal-row:nth-child(1) { animation-delay: 0.7s; }
+            .cp-reveal-row:nth-child(2) { animation-delay: 0.95s; }
+            .cp-reveal-row:nth-child(3) { animation-delay: 1.2s; }
+
+            .cp-hero-card {
+              opacity: 0;
+              animation: cpCardIn 0.6s ease forwards;
+            }
+
+            .cp-glow {
+              animation: cpPulse 5s ease-in-out infinite;
+            }
+          }
+
+          @keyframes cpFadeSlideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+
+          @keyframes cpCardIn {
+            from { opacity: 0; transform: translateY(16px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+          }
+
+          @keyframes cpPulse {
+            0%, 100% { opacity: 0.35; transform: scale(1); }
+            50% { opacity: 0.55; transform: scale(1.06); }
+          }
+        `}</style>
+
+
+        {/* Ambient glow */}
+
+        <div
+          aria-hidden="true"
+          className="cp-glow pointer-events-none absolute -right-40 -top-40 h-[560px] w-[560px] rounded-full bg-emerald-500/20 blur-[120px]"
+        />
+
+        <div
+          aria-hidden="true"
+          className="cp-glow pointer-events-none absolute -bottom-52 -left-32 h-[480px] w-[480px] rounded-full bg-emerald-400/10 blur-[120px]"
+        />
+
+
+        <div className="relative mx-auto grid min-h-[680px] max-w-[1440px] items-center gap-12 px-4 py-20 sm:px-6 sm:py-24 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-28 xl:gap-16 xl:px-10">
+
+          <div className="max-w-[720px]">
+            <p className="text-xs font-bold tracking-[0.18em] text-brand-accent">
               AGENTIC CAREER MENTOR
             </p>
 
-            <h1 className="mt-5 text-4xl font-bold leading-[1.04] tracking-[-0.045em] sm:text-5xl lg:text-6xl xl:text-[68px]">
-              Know where your resume stands.
+            <h1 className="mt-5 text-5xl font-black leading-[0.98] tracking-[-0.04em] sm:text-6xl lg:text-7xl xl:text-[84px]">
+              Stop guessing
 
-              <span className="mt-2 block text-emerald-100">
-                Know what to improve next.
+              <span className="block text-emerald-300">
+                if you're ready.
               </span>
             </h1>
 
-            <p className="mt-7 max-w-[650px] text-base leading-8 text-gray-300 sm:text-lg">
-              CareerPilot analyzes your resume, compares it
-              with your target role, identifies skill gaps,
-              and turns the findings into a practical career
-              action plan.
+            <p className="mt-7 max-w-[560px] text-base leading-8 text-gray-300 sm:text-lg">
+              CareerPilot analyzes your resume against a real
+              job description in seconds, then turns the gaps
+              into a practical, prioritized action plan.
             </p>
 
 
@@ -128,20 +187,20 @@ function Home() {
             </div>
 
 
-            <p className="mt-6 text-xs font-medium tracking-wide text-gray-400">
+            <p className="mt-6 text-xs font-medium tracking-wide text-gray-500">
               BUILT FOR STUDENTS AND FRESH GRADUATES
             </p>
           </div>
 
 
-          {/* HERO REPORT PREVIEW */}
+          {/* HERO LIVE ANALYSIS PREVIEW */}
 
-          <div className="w-full rounded-2xl border border-gray-700 bg-gray-800/80 p-5 shadow-2xl shadow-black/20 sm:p-7 lg:justify-self-end">
+          <div className="cp-hero-card w-full rounded-2xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/40 backdrop-blur-sm sm:p-7 lg:justify-self-end">
 
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-bold tracking-[0.14em] text-brand-accent">
-                  RESUME ANALYSIS
+                  LIVE RESUME ANALYSIS
                 </p>
 
                 <h2 className="mt-2 text-lg font-semibold">
@@ -149,23 +208,16 @@ function Home() {
                 </h2>
               </div>
 
-              <span className="rounded-full bg-emerald-400/10 px-3 py-1.5 text-xs font-semibold text-emerald-300">
-                Analysis ready
+              <span className="flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-3 py-1.5 text-xs font-semibold text-emerald-300">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                Analyzing
               </span>
             </div>
 
 
-            <div className="mt-8 flex items-center gap-5 border-b border-gray-700 pb-7">
+            <div className="mt-8 flex items-center gap-6 border-b border-white/10 pb-7">
 
-              <div>
-                <span className="text-5xl font-bold tracking-tight text-emerald-300">
-                  60
-                </span>
-
-                <span className="ml-1 text-sm text-gray-400">
-                  /100
-                </span>
-              </div>
+              <HeroScoreRing target={60} />
 
               <div>
                 <p className="font-semibold">
@@ -173,8 +225,8 @@ function Home() {
                 </p>
 
                 <p className="mt-1 text-xs leading-5 text-gray-400">
-                  Based on resume evidence and
-                  target-role requirements.
+                  Sample output — based on resume
+                  evidence and target-role requirements.
                 </p>
               </div>
 
@@ -183,7 +235,7 @@ function Home() {
 
             <div className="mt-5 space-y-3">
 
-              <div className="grid grid-cols-[auto_1fr] gap-x-3 rounded-xl border border-gray-700 bg-midnight/60 p-4">
+              <div className="cp-reveal-row grid grid-cols-[auto_1fr] gap-x-3 rounded-xl border border-white/10 bg-black/20 p-4">
                 <CheckCircle2
                   size={19}
                   className="row-span-2 text-emerald-400"
@@ -199,7 +251,7 @@ function Home() {
               </div>
 
 
-              <div className="grid grid-cols-[auto_1fr] gap-x-3 rounded-xl border border-gray-700 bg-midnight/60 p-4">
+              <div className="cp-reveal-row grid grid-cols-[auto_1fr] gap-x-3 rounded-xl border border-white/10 bg-black/20 p-4">
                 <Gauge
                   size={19}
                   className="row-span-2 text-amber-400"
@@ -215,7 +267,7 @@ function Home() {
               </div>
 
 
-              <div className="grid grid-cols-[auto_1fr] gap-x-3 rounded-xl border border-gray-700 bg-midnight/60 p-4">
+              <div className="cp-reveal-row grid grid-cols-[auto_1fr] gap-x-3 rounded-xl border border-white/10 bg-black/20 p-4">
                 <Sparkles
                   size={19}
                   className="row-span-2 text-emerald-400"
@@ -381,6 +433,11 @@ function Home() {
       </section>
 
 
+      {/* ================= FAQ ================= */}
+
+      <FAQSection />
+
+
       {/* ================= FRESHERS ================= */}
 
       <section
@@ -472,6 +529,301 @@ function Home() {
       </footer>
 
     </main>
+  );
+}
+
+
+
+const FAQ_ITEMS = [
+  {
+    question: "How does Career AI work?",
+    answer:
+      "Career AI uses your selected resume as context so the guidance stays connected to your actual skills, projects, and experience. It helps you reason about roles, preparation priorities, projects, interview readiness, and practical next steps instead of giving only generic career advice.",
+  },
+  {
+    question: "Can I run Job Match against any job description?",
+    answer:
+      "Yes. Paste a job description and CareerPilot compares it with your resume to surface a match score, strong matches, partial matches, missing skills, resume improvements, and the most important actions to take next.",
+  },
+  {
+    question: "Does CareerPilot work if I do not have much experience yet?",
+    answer:
+      "Yes. CareerPilot is designed for students and fresh graduates. Recommendations are kept realistic for an entry-level portfolio, with practical learning tasks and projects you can actually complete, explain, and use as evidence in interviews.",
+  },
+  {
+    question: "Is the Skill Gap analysis based on my actual resume?",
+    answer:
+      "Yes. Skill Gap analysis builds on your resume and Job Match results, then prioritizes missing or weakly demonstrated skills so you can focus on the areas that matter most for the role you are targeting.",
+  },
+  {
+    question: "Can I download my Career Readiness report?",
+    answer:
+      "Yes. CareerPilot can export a consolidated Career Readiness report that brings together your Job Match, Skill Gap, Career Plan, learning priorities, practical actions, portfolio evidence, and interview preparation in one PDF.",
+  },
+  {
+    question: "Does Mock Interview practice adapt to my skill gaps?",
+    answer:
+      "Yes. Mock Interview sessions can use your resume, target job description, and Skill Gap report as context. You receive question-by-question feedback, improvement suggestions, and a final readiness score at the end of the session.",
+  },
+];
+
+
+function FAQSection() {
+  const [openIndex, setOpenIndex] =
+    useState(0);
+
+  return (
+    <section
+  id="faq"
+  className="scroll-mt-24 border-y border-border-soft bg-app-bg"
+>
+      <div className="mx-auto max-w-[1440px] px-4 py-20 sm:px-6 sm:py-24 lg:px-8 xl:px-10">
+
+        <div className="mx-auto max-w-3xl text-center">
+          <p className="text-xs font-bold tracking-[0.15em] text-brand">
+            FAQ
+          </p>
+
+          <h2 className="mt-4 text-3xl font-bold tracking-[-0.035em] text-midnight sm:text-4xl lg:text-5xl">
+            Questions before you get started.
+          </h2>
+
+          <p className="mx-auto mt-5 max-w-2xl leading-7 text-text-muted">
+            A quick overview of how CareerPilot uses your
+            resume, target role, skill gaps, and interview
+            practice to create practical career guidance.
+          </p>
+        </div>
+
+
+        <div className="mx-auto mt-12 max-w-4xl overflow-hidden rounded-2xl border border-border-soft bg-white shadow-sm">
+
+          {FAQ_ITEMS.map(
+            (item, index) => (
+              <FAQItem
+                key={item.question}
+                item={item}
+                isOpen={
+                  openIndex === index
+                }
+                onToggle={() =>
+                  setOpenIndex(
+                    openIndex === index
+                      ? -1
+                      : index
+                  )
+                }
+                isLast={
+                  index ===
+                  FAQ_ITEMS.length - 1
+                }
+              />
+            )
+          )}
+
+        </div>
+
+
+        <div className="mx-auto mt-8 flex max-w-4xl flex-col gap-4 rounded-2xl border border-emerald-100 bg-emerald-50/60 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+
+          <div>
+            <p className="text-sm font-semibold text-midnight">
+              Still exploring what CareerPilot can do?
+            </p>
+
+            <p className="mt-1 text-sm leading-6 text-text-muted">
+              Create an account, upload your resume, and start
+              with a real role you are interested in.
+            </p>
+          </div>
+
+
+          <Link
+            to="/register"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-brand px-5 text-sm font-semibold text-white transition hover:bg-brand-hover"
+          >
+            Start free
+
+            <ArrowRight size={16} />
+          </Link>
+
+        </div>
+
+      </div>
+    </section>
+  );
+}
+
+
+function FAQItem({
+  item,
+  isOpen,
+  onToggle,
+  isLast,
+}) {
+  return (
+    <div
+      className={
+        isLast
+          ? ""
+          : "border-b border-border-soft"
+      }
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        className="group flex w-full items-center justify-between gap-5 px-5 py-5 text-left transition hover:bg-white sm:px-7 sm:py-6"
+      >
+        <span className="text-[15px] font-semibold leading-6 text-midnight transition group-hover:text-brand sm:text-base">
+          {item.question}
+        </span>
+
+        <span
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition ${
+            isOpen
+              ? "border-emerald-200 bg-brand-soft text-brand"
+              : "border-border-soft bg-white text-text-muted group-hover:border-emerald-200 group-hover:text-brand"
+          }`}
+        >
+          <Plus
+            size={16}
+            className={`transition-transform duration-300 ${
+              isOpen
+                ? "rotate-45"
+                : ""
+            }`}
+          />
+        </span>
+      </button>
+
+
+      <div
+        className={`grid transition-all duration-300 ease-out ${
+          isOpen
+            ? "grid-rows-[1fr] opacity-100"
+            : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <p className="px-5 pb-6 pr-16 text-sm leading-7 text-text-muted sm:px-7 sm:pr-20">
+            {item.answer}
+          </p>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+
+function HeroScoreRing({ target }) {
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia &&
+      window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
+
+    if (prefersReducedMotion) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setValue(target);
+      return;
+    }
+
+    let frameId;
+    let start;
+    const duration = 1200;
+    const delay = 350;
+
+    function tick(timestamp) {
+      if (!start) start = timestamp;
+
+      const elapsed = timestamp - start - delay;
+
+      if (elapsed < 0) {
+        frameId = requestAnimationFrame(tick);
+        return;
+      }
+
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+
+      setValue(Math.round(eased * target));
+
+      if (progress < 1) {
+        frameId = requestAnimationFrame(tick);
+      }
+    }
+
+    frameId = requestAnimationFrame(tick);
+
+    return () => cancelAnimationFrame(frameId);
+  }, [target]);
+
+  const size = 96;
+  const strokeWidth = 8;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset =
+    circumference - (value / 100) * circumference;
+
+  return (
+    <div
+      className="relative flex shrink-0 items-center justify-center"
+      style={{ width: size, height: size }}
+    >
+
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="-rotate-90"
+      >
+
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="rgba(255,255,255,0.1)"
+          strokeWidth={strokeWidth}
+        />
+
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          className="text-emerald-300"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{
+            transition:
+              "stroke-dashoffset 0.15s linear",
+          }}
+        />
+
+      </svg>
+
+
+      <div className="absolute flex items-baseline">
+        <span className="text-3xl font-bold tracking-tight text-emerald-300">
+          {value}
+        </span>
+
+        <span className="ml-0.5 text-xs text-gray-500">
+          /100
+        </span>
+      </div>
+
+    </div>
   );
 }
 

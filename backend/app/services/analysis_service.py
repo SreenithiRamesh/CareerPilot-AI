@@ -26,6 +26,11 @@ def _to_json(data) -> str:
     )
 
 
+# ==================================================
+# JOB MATCH
+# ==================================================
+
+
 def save_job_match_result(
     db: Session,
     *,
@@ -75,6 +80,11 @@ def save_job_match_result(
     return record
 
 
+# ==================================================
+# SKILL GAP
+# ==================================================
+
+
 def save_skill_gap_report(
     db: Session,
     *,
@@ -83,11 +93,27 @@ def save_skill_gap_report(
     job_description_id: int,
     result: SkillGapOutput,
 ) -> SkillGapReport:
+    """
+    Persist structured Skill Gap analysis.
+
+    Lists and structured project recommendations
+    are serialized into JSON before being stored
+    in MySQL TEXT columns.
+    """
+
     priority_gaps = {
         "high": result.high_priority_gaps,
         "medium": result.medium_priority_gaps,
         "low": result.low_priority_gaps,
     }
+
+    # Convert PortfolioProjectPrompt Pydantic models
+    # into plain Python dictionaries before JSON storage.
+
+    portfolio_project_prompts = [
+        project.model_dump()
+        for project in result.portfolio_project_prompts
+    ]
 
     record = SkillGapReport(
         user_id=user_id,
@@ -122,6 +148,10 @@ def save_skill_gap_report(
             result.proof_of_skill_actions
         ),
 
+        portfolio_project_prompts=_to_json(
+            portfolio_project_prompts
+        ),
+
         readiness_summary=(
             result.readiness_summary
         ),
@@ -138,6 +168,11 @@ def save_skill_gap_report(
         raise
 
     return record
+
+
+# ==================================================
+# CAREER PLAN
+# ==================================================
 
 
 def save_career_plan(

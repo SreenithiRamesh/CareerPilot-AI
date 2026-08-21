@@ -1,4 +1,12 @@
-from pydantic import BaseModel, Field
+from pydantic import (
+    BaseModel,
+    Field,
+)
+
+
+# ==================================================
+# JOB MATCH
+# ==================================================
 
 
 class JobMatchOutput(BaseModel):
@@ -26,6 +34,36 @@ class JobMatchOutput(BaseModel):
     priority_actions: list[str] = Field(
         default_factory=list
     )
+
+
+# ==================================================
+# PORTFOLIO PROJECT RECOMMENDATION
+# ==================================================
+
+
+class PortfolioProjectPrompt(BaseModel):
+    target_skill: str = ""
+
+    project_title: str = ""
+
+    project_goal: str = ""
+
+    suggested_stack: list[str] = Field(
+        default_factory=list
+    )
+
+    implementation_steps: list[str] = Field(
+        default_factory=list
+    )
+
+    portfolio_evidence: list[str] = Field(
+        default_factory=list
+    )
+
+
+# ==================================================
+# SKILL GAP
+# ==================================================
 
 
 class SkillGapOutput(BaseModel):
@@ -65,11 +103,22 @@ class SkillGapOutput(BaseModel):
         default_factory=list
     )
 
+    portfolio_project_prompts: list[
+        PortfolioProjectPrompt
+    ] = Field(
+        default_factory=list
+    )
+
     readiness_summary: str = ""
 
 
+# ==================================================
+# CAREER PLAN
+# ==================================================
+
+
 class CareerPlanOutput(BaseModel):
-    readiness_summary: str
+    readiness_summary: str = ""
 
     top_priorities: list[str] = Field(
         default_factory=list

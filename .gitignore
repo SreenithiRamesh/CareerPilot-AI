@@ -1,0 +1,83 @@
+# ==================================================
+# CAREERPILOT AI - GITIGNORE
+# ==================================================
+
+# ------------------------------
+# Environment / secrets
+# ------------------------------
+.env
+.env.*
+!.env.example
+
+# ------------------------------
+# Python virtual environments
+# ------------------------------
+.venv/
+venv/
+env/
+backend/.venv/
+backend/.venv-linux/
+
+# ------------------------------
+# Python cache / tooling
+# ------------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.pyright/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ------------------------------
+# Node / React
+# ------------------------------
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+build/
+frontend/build/
+
+# ------------------------------
+# Local Chroma persistence
+# ------------------------------
+chroma_db/
+backend/chroma_db/
+
+# ------------------------------
+# Logs
+# ------------------------------
+*.log
+logs/
+
+# ------------------------------
+# Local databases
+# ------------------------------
+*.db
+*.sqlite
+*.sqlite3
+
+# ------------------------------
+# IDE / editor
+# ------------------------------
+.vscode/
+.idea/
+
+# ------------------------------
+# OS generated
+# ------------------------------
+.DS_Store
+Thumbs.db
+
+# ------------------------------
+# Temporary / backup files
+# ------------------------------
+*.tmp
+*.temp
+*.bak
+*.swp
+*~

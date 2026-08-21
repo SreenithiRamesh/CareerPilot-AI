@@ -713,7 +713,23 @@ Evaluate:
 - recommended learning order
 - practical tasks for improving high-priority gaps
 - proof-of-skill actions the candidate can add to their portfolio
+- 2 to 3 portfolio project recommendations that help close the most important gaps
 - a short readiness summary
+
+Portfolio project recommendation requirements:
+
+Each portfolio project recommendation must contain:
+
+- target_skill
+- project_title
+- project_goal
+- suggested_stack
+- implementation_steps
+- portfolio_evidence
+
+The purpose of these recommendations is to help the candidate
+create visible, resume-worthy proof for important missing or
+partially demonstrated skills.
 
 Important rules:
 
@@ -733,6 +749,26 @@ Important rules:
 - Practice tasks should be concrete and achievable.
 - Proof-of-skill actions should result in portfolio, GitHub,
   project, deployment, or resume evidence.
+
+Portfolio project rules:
+
+- Generate only 2 to 3 portfolio project recommendations.
+- Each project must address one or more important missing or
+  partially demonstrated skills.
+- Projects must be relevant to this specific job description.
+- Do not recommend random generic projects.
+- Prefer projects that combine new skills with technologies the
+  candidate already demonstrates.
+- Keep project scope realistic for an entry-level candidate.
+- Avoid requiring too many unfamiliar technologies in one project.
+- suggested_stack should normally contain 3 to 6 technologies.
+- implementation_steps should be ordered, concise, and practical.
+- portfolio_evidence should describe visible proof such as:
+  GitHub repositories, README documentation, tests, deployment,
+  architecture documentation, screenshots, API documentation,
+  or resume-ready project evidence.
+- Never claim that a recommended project has already been completed.
+- Do not fabricate GitHub links, deployments, metrics, or achievements.
 - Keep every list item concise and specific.
 """
 
@@ -1152,7 +1188,19 @@ Evaluate:
 - recommended learning order
 - practical tasks for improving the important gaps
 - proof-of-skill actions
+- 2 to 3 portfolio project recommendations that help close the most important gaps
 - a concise readiness summary
+
+Portfolio project recommendation requirements:
+
+Each portfolio project recommendation must contain:
+
+- target_skill
+- project_title
+- project_goal
+- suggested_stack
+- implementation_steps
+- portfolio_evidence
 
 Important rules:
 
@@ -1163,6 +1211,26 @@ Important rules:
 - Keep recommendations realistic for an entry-level candidate.
 - Do not recommend learning everything at once.
 - Keep every list item concise, practical, and specific.
+
+Portfolio project rules:
+
+- Generate only 2 to 3 portfolio project recommendations.
+- Each recommendation must address one or more important missing
+  or partially demonstrated skills.
+- Projects must directly support this job description.
+- Prefer projects that combine missing skills with technologies
+  already demonstrated by the candidate.
+- Keep project scope achievable for an entry-level candidate.
+- Avoid requiring too many unfamiliar technologies at once.
+- suggested_stack should normally contain 3 to 6 technologies.
+- implementation_steps should be ordered, concrete, and practical.
+- portfolio_evidence should describe visible proof that could
+  strengthen GitHub, portfolio, deployment, documentation,
+  or future resume evidence.
+- Do not claim that the candidate has already completed any
+  recommended project.
+- Do not fabricate metrics, GitHub links, deployments,
+  certifications, or achievements.
 """
 
     # --------------------------------------------------

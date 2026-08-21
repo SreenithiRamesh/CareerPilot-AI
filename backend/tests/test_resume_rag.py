@@ -1,60 +1,232 @@
+from langchain_core.documents import Document
+
 from app.resume_rag import (
-    create_resume_vector_store,
+    build_collection_name,
     search_resume,
+    split_resume_text,
 )
 
 
-chunks = [
+# ==================================================
+# TEST: RESUME TEXT SPLITTING
+# ==================================================
+
+
+def test_split_resume_text_returns_chunks():
     """
-AWS / CLOUD EXPOSURE
-Configured Amazon S3 for static website hosting with CloudFront.
-Worked with EC2, VPC, IAM, CloudWatch, subnets,
-route tables, and Security Groups.
-""",
-
+    Resume text should be split into one or more
+    non-empty chunks.
     """
-EduJet LMS
-Built using React.js, Node.js, Express.js,
-MongoDB, Clerk, and Stripe.
-Implemented authentication and payment workflows.
-""",
 
+    text = """
+    Software Engineer
+
+    Skills:
+    Java, React, Node.js, SQL, AWS.
+
+    Projects:
+    Built a Learning Management System using
+    React, Node.js, Express, and MongoDB.
+
+    Cloud Exposure:
+    Worked with EC2, S3, IAM, VPC, and CloudWatch.
     """
-Employee Hub
-Built using React.js, Node.js, Express.js,
-SQL, and JWT authentication.
-Implemented CRUD operations and optimized SQL queries.
-""",
 
+    chunks = split_resume_text(
+        text
+    )
+
+    assert isinstance(
+        chunks,
+        list,
+    )
+
+    assert len(
+        chunks
+    ) > 0
+
+    assert all(
+        isinstance(chunk, str)
+        and chunk.strip()
+        for chunk in chunks
+    )
+
+
+# ==================================================
+# TEST: CHROMA COLLECTION NAME
+# ==================================================
+
+
+def test_build_collection_name_sanitizes_thread_id():
     """
-CERTIFICATIONS
-AWS Cloud Architecting — AWS Academy.
-Oracle Agentic AI Foundations Associate.
-Java Fundamentals — Oracle Academy.
-""",
-]
+    Thread IDs containing unsupported characters
+    should be converted into Chroma-safe names.
+    """
+
+    result = build_collection_name(
+        "user/thread:123"
+    )
+
+    assert result == (
+        "resume_user_thread_123"
+    )
 
 
-vector_store = create_resume_vector_store(chunks)
+def test_build_collection_name_handles_empty_value():
+    """
+    An unusable thread ID should fall back
+    to the default collection name.
+    """
+
+    result = build_collection_name(
+        "///"
+    )
+
+    assert result == (
+        "resume_default"
+    )
 
 
-query = "What AWS experience does this candidate have?"
+# ==================================================
+# FAKE VECTOR STORE
+# ==================================================
 
 
-results = search_resume(
-    vector_store,
-    query,
-    k=2,
-)
+class FakeVectorStore:
+    """
+    Minimal fake Chroma-like object used to verify
+    CareerPilot search parameters without making
+    embedding API calls.
+    """
+
+    def __init__(self):
+        self.received_kwargs = None
+
+    def similarity_search(
+        self,
+        **kwargs,
+    ):
+        self.received_kwargs = (
+            kwargs
+        )
+
+        return [
+            Document(
+                page_content=(
+                    "AWS experience with "
+                    "EC2, S3, IAM and VPC."
+                ),
+                metadata={
+                    "source":
+                        "resume",
+                },
+            )
+        ]
 
 
-print("\nQUERY:")
-print(query)
+# ==================================================
+# TEST: BASIC RESUME SEARCH
+# ==================================================
 
 
-print("\nRETRIEVED CHUNKS:")
+def test_search_resume_without_filters():
+    vector_store = (
+        FakeVectorStore()
+    )
+
+    results = search_resume(
+        vector_store,
+        "What AWS experience "
+        "does the candidate have?",
+        k=2,
+    )
+
+    assert (
+        vector_store.received_kwargs
+        == {
+            "query":
+                (
+                    "What AWS experience "
+                    "does the candidate have?"
+                ),
+            "k":
+                2,
+        }
+    )
+
+    assert len(
+        results
+    ) == 1
+
+    assert (
+        "AWS"
+        in results[0].page_content
+    )
 
 
-for result in results:
-    print("\n---")
-    print(result.page_content)
+# ==================================================
+# TEST: USER FILTER
+# ==================================================
+
+
+def test_search_resume_with_user_filter():
+    vector_store = (
+        FakeVectorStore()
+    )
+
+    search_resume(
+        vector_store,
+        "Java experience",
+        user_id="12",
+    )
+
+    assert (
+        vector_store.received_kwargs[
+            "filter"
+        ]
+        == {
+            "user_id": {
+                "$eq": "12"
+            }
+        }
+    )
+
+
+# ==================================================
+# TEST: USER + RESUME FILTER
+# ==================================================
+
+
+def test_search_resume_with_user_and_resume_filters():
+    vector_store = (
+        FakeVectorStore()
+    )
+
+    search_resume(
+        vector_store,
+        "Backend experience",
+        user_id="12",
+        resume_id="45",
+    )
+
+    expected_filter = {
+        "$and": [
+            {
+                "user_id": {
+                    "$eq": "12"
+                }
+            },
+            {
+                "resume_id": {
+                    "$eq": "45"
+                }
+            },
+        ]
+    }
+
+    assert (
+        vector_store.received_kwargs[
+            "filter"
+        ]
+        == expected_filter
+    )

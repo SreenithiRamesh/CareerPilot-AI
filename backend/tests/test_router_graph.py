@@ -1,27 +1,11 @@
-from router_graph import career_router_graph
+from app.router_graph import career_router_graph
 
 
-message = """
-Please review my resume.
-I am a 2026 CSE graduate.
-Skills: Java, React, Node.js, SQL, AWS.
-Projects: LMS application and Employee Management System.
-I am targeting Software Engineer roles.
-"""
+def test_career_router_graph_is_available():
+    """
+    Smoke test confirming that the CareerPilot
+    routing graph can be imported successfully
+    without making a live Gemini request.
+    """
 
-result = career_router_graph.invoke(
-    {
-        "message": message,
-        "intent": "",
-        "response": "",
-    }
-)
-
-print("USER:")
-print(message)
-
-print("INTENT:")
-print(result["intent"])
-
-print("RESPONSE:")
-print(result["response"])
+    assert career_router_graph is not None

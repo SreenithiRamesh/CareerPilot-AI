@@ -1,11 +1,11 @@
-from graph import career_graph
+from app.graph import career_graph
 
 
-result = career_graph.invoke(
-    {
-        "message": "I want to prepare for backend engineering.",
-        "response": "",
-    }
-)
+def test_career_graph_is_available():
+    """
+    Smoke test confirming that the CareerPilot
+    base LangGraph workflow can be imported
+    successfully without invoking Gemini.
+    """
 
-print(result)
+    assert career_graph is not None
