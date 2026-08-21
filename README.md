@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🚀 CareerPilot AI
+# CareerPilot AI
 
 ### AI-Powered Career Intelligence Platform for Students & Fresh Graduates
 
