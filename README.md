@@ -686,7 +686,44 @@ Registered users can securely sign in and access protected pages such as Dashboa
 - Protected route access
 - Session persistence
 - Logout flow
+## 📊 Career Dashboard
 
+CareerPilot provides a centralized career workspace where users can track their progress across the complete career-preparation workflow.
+
+The dashboard connects Resume Analysis, Job Match, Skill Gap Analysis, Career Planning, Mock Interviews, Career AI, and historical reports through a unified interface.
+
+### Career Preparation Workflow
+
+<div align="center">
+  <img
+    src="docs/screenshots/dashboard1.png"
+    alt="CareerPilot AI Career Dashboard and Workflow"
+    width="100%"
+  />
+</div>
+
+<br />
+
+### Career Readiness & Analysis Tracking
+
+<div align="center">
+  <img
+    src="docs/screenshots/dashboard2.png"
+    alt="CareerPilot AI Career Readiness Dashboard"
+    width="100%"
+  />
+</div>
+
+### Dashboard Capabilities
+
+- Resume-driven career preparation workflow
+- Career readiness progress tracking
+- Job Match, Skill Gap, and Career Plan status
+- Context-aware next-best-step recommendations
+- Latest career analysis overview
+- Direct access to Career AI
+- Integrated Mock Interview and History modules
+- Authenticated user workspace
 ---
 
 ## 🚧 Engineering Roadmap
