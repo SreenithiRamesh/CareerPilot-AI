@@ -15,6 +15,7 @@ from pydantic import (
     BaseModel,
     Field,
 )
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.analysis_history_routes import (
@@ -30,7 +31,10 @@ from app.database import get_db
 from app.mock_interview_routes import (
     router as mock_interview_router,
 )
-from app.models import User
+from app.models import (
+    SkillGapReport,
+    User,
+)
 from app.resume_routes import (
     router as resume_router,
 )
@@ -40,6 +44,162 @@ from app.router_graph import (
 from app.services.conversation_service import (
     get_or_create_owned_conversation,
 )
+
+
+# ==================================================
+# PERSISTED SKILL GAP CONTEXT
+# ==================================================
+
+
+def _parse_json_value(
+    value: str | None,
+    fallback,
+):
+    """
+    Safely deserialize JSON stored in MySQL TEXT columns.
+    """
+
+    if not value:
+        return fallback
+
+    try:
+        parsed = json.loads(
+            value
+        )
+    except (
+        json.JSONDecodeError,
+        TypeError,
+    ):
+        return fallback
+
+    return parsed
+
+
+def _load_latest_skill_gap_context(
+    db: Session,
+    *,
+    user_id: int,
+    resume_id: int,
+) -> tuple[int, str] | None:
+    """
+    Load the newest Skill Gap report owned by the
+    authenticated user for the selected resume.
+
+    The returned JSON string follows the same public
+    SkillGapOutput shape used by CareerPilot's graph,
+    allowing a fresh Career AI conversation to reuse
+    persisted analysis without rerunning Skill Gap.
+    """
+
+    report = db.scalar(
+        select(
+            SkillGapReport
+        )
+        .where(
+            SkillGapReport.user_id
+            == user_id,
+            SkillGapReport.resume_id
+            == resume_id,
+        )
+        .order_by(
+            SkillGapReport.created_at.desc()
+        )
+        .limit(1)
+    )
+
+    if report is None:
+        return None
+
+    priority_gaps = (
+        _parse_json_value(
+            report.priority_gaps,
+            {},
+        )
+    )
+
+    if not isinstance(
+        priority_gaps,
+        dict,
+    ):
+        priority_gaps = {}
+
+    context = {
+        "existing_skills":
+            _parse_json_value(
+                report.existing_skills,
+                [],
+            ),
+
+        "missing_skills":
+            _parse_json_value(
+                report.missing_skills,
+                [],
+            ),
+
+        "partially_demonstrated_skills":
+            _parse_json_value(
+                report.partial_skills,
+                [],
+            ),
+
+        "high_priority_gaps":
+            priority_gaps.get(
+                "high",
+                [],
+            )
+            or [],
+
+        "medium_priority_gaps":
+            priority_gaps.get(
+                "medium",
+                [],
+            )
+            or [],
+
+        "low_priority_gaps":
+            priority_gaps.get(
+                "low",
+                [],
+            )
+            or [],
+
+        "recommended_learning_order":
+            _parse_json_value(
+                report.learning_order,
+                [],
+            ),
+
+        "practice_tasks":
+            _parse_json_value(
+                report.practice_tasks,
+                [],
+            ),
+
+        "proof_of_skill_actions":
+            _parse_json_value(
+                report.proof_of_skill_actions,
+                [],
+            ),
+
+        "portfolio_project_prompts":
+            _parse_json_value(
+                report.portfolio_project_prompts,
+                [],
+            ),
+
+        "readiness_summary":
+            report.readiness_summary
+            or "",
+    }
+
+    return (
+        report.id,
+        json.dumps(
+            context,
+            ensure_ascii=False,
+            indent=2,
+        ),
+    )
 
 
 # ==================================================
@@ -359,7 +519,51 @@ def chat(
 
 
     # --------------------------------------------------
-    # 6. Execute LangGraph workflow
+    # 6. Hydrate latest persisted Skill Gap when useful
+    # --------------------------------------------------
+    #
+    # Career AI general conversations normally send a
+    # resume_id but no job_description. In that case,
+    # load the newest saved Skill Gap report for the
+    # same authenticated user + selected resume.
+    #
+    # Structured Job Match / Skill Gap / Career Plan
+    # requests already send their own job_description,
+    # so we intentionally do not inject an older report
+    # into those workflows.
+    # --------------------------------------------------
+
+    if (
+        request.resume_id is not None
+        and not request.job_description
+    ):
+        latest_skill_gap = (
+            _load_latest_skill_gap_context(
+                db,
+                user_id=
+                    current_user.id,
+                resume_id=
+                    request.resume_id,
+            )
+        )
+
+        if latest_skill_gap is not None:
+            (
+                skill_gap_report_id,
+                skill_gap_analysis,
+            ) = latest_skill_gap
+
+            graph_input[
+                "skill_gap_report_id"
+            ] = skill_gap_report_id
+
+            graph_input[
+                "skill_gap_analysis"
+            ] = skill_gap_analysis
+
+
+    # --------------------------------------------------
+    # 7. Execute LangGraph workflow
     # --------------------------------------------------
 
     result = (
@@ -372,7 +576,7 @@ def chat(
 
 
     # --------------------------------------------------
-    # 7. Standardize API response
+    # 8. Standardize API response
     # --------------------------------------------------
     #
     # Structured analysis intents return nested JSON
@@ -502,7 +706,7 @@ def chat(
 
 
     # --------------------------------------------------
-    # 8. Normal conversational response
+    # 9. Normal conversational response
     # --------------------------------------------------
 
     return {

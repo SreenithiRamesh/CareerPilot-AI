@@ -30,16 +30,79 @@ import {
 import api from "../services/api";
 
 
-const CHAT_STORAGE_KEY =
+const CHAT_STORAGE_PREFIX =
   "careerpilot_ai_chats";
 
-const ACTIVE_CHAT_STORAGE_KEY =
+const ACTIVE_CHAT_STORAGE_PREFIX =
   "careerpilot_active_chat_id";
 
-const THREAD_STORAGE_KEY =
+const THREAD_STORAGE_PREFIX =
   "careerpilot_thread_id";
 
 const MAX_SAVED_CHATS = 20;
+
+
+function getAuthenticatedUserId() {
+  const token =
+    localStorage.getItem(
+      "careerpilot_token"
+    );
+
+  if (!token) {
+    return "guest";
+  }
+
+  try {
+    const parts =
+      token.split(".");
+
+    if (parts.length !== 3) {
+      return "guest";
+    }
+
+    const normalizedPayload =
+      parts[1]
+        .replace(/-/g, "+")
+        .replace(/_/g, "/");
+
+    const paddedPayload =
+      normalizedPayload.padEnd(
+        Math.ceil(
+          normalizedPayload.length / 4
+        ) * 4,
+        "="
+      );
+
+    const payload =
+      JSON.parse(
+        atob(
+          paddedPayload
+        )
+      );
+
+    return String(
+      payload?.sub ||
+      "guest"
+    );
+  } catch {
+    return "guest";
+  }
+}
+
+
+function getChatStorageKey() {
+  return `${CHAT_STORAGE_PREFIX}_${getAuthenticatedUserId()}`;
+}
+
+
+function getActiveChatStorageKey() {
+  return `${ACTIVE_CHAT_STORAGE_PREFIX}_${getAuthenticatedUserId()}`;
+}
+
+
+function getThreadStorageKey() {
+  return `${THREAD_STORAGE_PREFIX}_${getAuthenticatedUserId()}`;
+}
 
 
 const PROMPT_SUGGESTIONS = [
@@ -50,211 +113,6 @@ const PROMPT_SUGGESTIONS = [
   "What should I focus on this month?",
   "What skills should I strengthen for my target role?",
 ];
-
-
-const CONTEXTUAL_SUGGESTIONS = {
-  java: [
-    "Give me 10 Java fresher interview questions.",
-    "What Java topics should I revise first?",
-    "Quiz me on OOP concepts.",
-    "Suggest a Java project for my portfolio.",
-  ],
-
-  backend: [
-    "What backend skills should I learn next?",
-    "Suggest a backend portfolio project.",
-    "Help me improve my REST API knowledge.",
-    "What database concepts should I practice?",
-  ],
-
-  frontend: [
-    "What React concepts should I revise?",
-    "Suggest a frontend portfolio project.",
-    "Quiz me on React hooks.",
-    "How can I improve my frontend skills?",
-  ],
-
-  resume: [
-    "How can I improve my ATS readiness?",
-    "Improve my project bullet points.",
-    "What resume keywords am I missing?",
-    "Help me strengthen my professional summary.",
-  ],
-
-  interview: [
-    "Give me technical interview questions.",
-    "What should I revise before interviews?",
-    "Ask me Java and SQL questions.",
-    "How should I explain my projects in interviews?",
-  ],
-
-  project: [
-    "Help me plan this project step by step.",
-    "What tech stack should I use?",
-    "What features should I build first?",
-    "How should I explain this project in an interview?",
-  ],
-
-  cloud: [
-    "What AWS services should I learn next?",
-    "Suggest an AWS project for my portfolio.",
-    "Quiz me on EC2, S3, IAM, and VPC.",
-    "How can I deploy a project on AWS?",
-  ],
-
-  sql: [
-    "Quiz me on SQL interview questions.",
-    "Explain SQL joins with examples.",
-    "What database concepts should I revise?",
-    "Give me SQL practice questions.",
-  ],
-
-  devops: [
-    "What DevOps concepts should I learn next?",
-    "Help me understand Docker basics.",
-    "How does a CI/CD pipeline work?",
-    "Suggest a beginner DevOps project.",
-  ],
-
-  ai: [
-    "What should I learn next in AI engineering?",
-    "Explain RAG in simple terms.",
-    "How does LangGraph help this project?",
-    "Suggest an AI portfolio project.",
-  ],
-
-  career: [
-    "What should I learn next?",
-    "Which role fits my current skills?",
-    "What should I focus on this month?",
-    "What is my biggest skill gap?",
-  ],
-};
-
-
-function getContextualSuggestions(
-  value
-) {
-  const text =
-    String(
-      value || ""
-    ).toLowerCase();
-
-  if (
-    text.includes("java")
-  ) {
-    return CONTEXTUAL_SUGGESTIONS.java;
-  }
-
-  if (
-    text.includes("aws") ||
-    text.includes("cloud") ||
-    text.includes("ec2") ||
-    text.includes("s3") ||
-    text.includes("iam") ||
-    text.includes("vpc")
-  ) {
-    return CONTEXTUAL_SUGGESTIONS.cloud;
-  }
-
-  if (
-    text.includes("docker") ||
-    text.includes("devops") ||
-    text.includes("ci/cd") ||
-    text.includes("cicd") ||
-    text.includes("jenkins") ||
-    text.includes("github actions")
-  ) {
-    return CONTEXTUAL_SUGGESTIONS.devops;
-  }
-
-  if (
-    text.includes("backend") ||
-    text.includes("node") ||
-    text.includes("express") ||
-    text.includes("rest api") ||
-    text.includes("api")
-  ) {
-    return CONTEXTUAL_SUGGESTIONS.backend;
-  }
-
-  if (
-    text.includes("frontend") ||
-    text.includes("react") ||
-    text.includes("javascript") ||
-    text.includes("typescript")
-  ) {
-    return CONTEXTUAL_SUGGESTIONS.frontend;
-  }
-
-  if (
-    text.includes("resume") ||
-    text.includes("ats") ||
-    text.includes("cv")
-  ) {
-    return CONTEXTUAL_SUGGESTIONS.resume;
-  }
-
-  if (
-    text.includes("interview") ||
-    text.includes("prepare")
-  ) {
-    return CONTEXTUAL_SUGGESTIONS.interview;
-  }
-
-  if (
-    text.includes("project") ||
-    text.includes("portfolio")
-  ) {
-    return CONTEXTUAL_SUGGESTIONS.project;
-  }
-
-  if (
-    text.includes("sql") ||
-    text.includes("mysql") ||
-    text.includes("database")
-  ) {
-    return CONTEXTUAL_SUGGESTIONS.sql;
-  }
-
-  if (
-    text.includes("langchain") ||
-    text.includes("langgraph") ||
-    text.includes("rag") ||
-    text.includes("gemini") ||
-    text.includes("ai ")
-  ) {
-    return CONTEXTUAL_SUGGESTIONS.ai;
-  }
-
-  return PROMPT_SUGGESTIONS.slice(
-    0,
-    4
-  );
-}
-
-
-function getLatestUserPrompt(
-  messages
-) {
-  for (
-    let index = messages.length - 1;
-    index >= 0;
-    index -= 1
-  ) {
-    const item = messages[index];
-
-    if (
-      item?.role === "user" &&
-      typeof item?.content === "string" &&
-      item.content.trim()
-    ) {
-      return item.content;
-    }
-  }
-
-  return "";
-}
 
 
 function createUniqueId(
@@ -335,7 +193,7 @@ function getConversationTitle(
 function readSavedChats() {
   const stored =
     localStorage.getItem(
-      CHAT_STORAGE_KEY
+      getChatStorageKey()
     );
 
   if (!stored) {
@@ -356,7 +214,8 @@ function readSavedChats() {
         typeof chat === "object" &&
         chat.id &&
         chat.threadId &&
-        Array.isArray(chat.messages)
+        Array.isArray(chat.messages) &&
+        chat.messages.length > 0
     );
   } catch {
     return [];
@@ -542,7 +401,7 @@ function CareerAI() {
 
     const storedActiveId =
       localStorage.getItem(
-        ACTIVE_CHAT_STORAGE_KEY
+        getActiveChatStorageKey()
       );
 
     if (
@@ -569,7 +428,7 @@ function CareerAI() {
       );
 
       localStorage.setItem(
-        THREAD_STORAGE_KEY,
+        getThreadStorageKey(),
         selectedChat.threadId
       );
 
@@ -600,12 +459,12 @@ function CareerAI() {
     setMessages([]);
 
     localStorage.setItem(
-      ACTIVE_CHAT_STORAGE_KEY,
+      getActiveChatStorageKey(),
       initialChat.id
     );
 
     localStorage.setItem(
-      THREAD_STORAGE_KEY,
+      getThreadStorageKey(),
       initialChat.threadId
     );
 
@@ -636,16 +495,16 @@ function CareerAI() {
           previous.map(
             (chat) =>
               chat.id ===
-                activeChatId
+              activeChatId
                 ? {
-                  ...chat,
-                  title:
-                    getConversationTitle(
-                      messages
-                    ),
-                  messages,
-                  updatedAt: now,
-                }
+                    ...chat,
+                    title:
+                      getConversationTitle(
+                        messages
+                      ),
+                    messages,
+                    updatedAt: now,
+                  }
                 : chat
           );
 
@@ -682,14 +541,26 @@ function CareerAI() {
     }
 
     try {
+      const persistedChats =
+        chatHistory.filter(
+          (chat) =>
+            Array.isArray(
+              chat.messages
+            ) &&
+            chat.messages.length > 0
+        );
+
       localStorage.setItem(
-        CHAT_STORAGE_KEY,
+        getChatStorageKey(),
         JSON.stringify(
-          chatHistory
+          persistedChats
         )
       );
-    } catch {
-       // Ignore invalid local storage data.
+    } catch (storageError) {
+      console.error(
+        "Career AI chat history could not be saved:",
+        storageError
+      );
     }
   }, [
     chatHistory,
@@ -759,8 +630,8 @@ function CareerAI() {
           project?.suggested_stack
         )
           ? project.suggested_stack
-            .filter(Boolean)
-            .join(", ")
+              .filter(Boolean)
+              .join(", ")
           : "";
 
       const promptParts = [
@@ -842,14 +713,17 @@ Start with Stage 1 only.
           "\n\n"
         )
       );
-    } catch {
-      // Ignore an invalid or unavailable project handoff.
+    } catch (handoffError) {
+      console.error(
+        "Career AI project handoff could not be read:",
+        handoffError
+      );
     } finally {
       localStorage.removeItem(
         "careerpilot_project_handoff"
       );
     }
-   }, []);
+  }, []);
 
 
   /* ==================================================
@@ -892,7 +766,7 @@ Start with Stage 1 only.
       activeChat?.threadId
     ) {
       localStorage.setItem(
-        THREAD_STORAGE_KEY,
+        getThreadStorageKey(),
         activeChat.threadId
       );
 
@@ -901,7 +775,7 @@ Start with Stage 1 only.
 
     const existing =
       localStorage.getItem(
-        THREAD_STORAGE_KEY
+        getThreadStorageKey()
       );
 
     if (existing) {
@@ -915,7 +789,7 @@ Start with Stage 1 only.
       activeResume?.thread_id
     ) {
       localStorage.setItem(
-        THREAD_STORAGE_KEY,
+        getThreadStorageKey(),
         activeResume.thread_id
       );
 
@@ -926,7 +800,7 @@ Start with Stage 1 only.
       createThreadId();
 
     localStorage.setItem(
-      THREAD_STORAGE_KEY,
+      getThreadStorageKey(),
       generated
     );
 
@@ -942,9 +816,18 @@ Start with Stage 1 only.
     const newChat =
       createEmptyChat();
 
+    const existingSavedChats =
+      chatHistory.filter(
+        (chat) =>
+          Array.isArray(
+            chat.messages
+          ) &&
+          chat.messages.length > 0
+      );
+
     const updatedChats = [
       newChat,
-      ...chatHistory,
+      ...existingSavedChats,
     ].slice(
       0,
       MAX_SAVED_CHATS
@@ -964,30 +847,18 @@ Start with Stage 1 only.
     setSearchQuery("");
 
     localStorage.setItem(
-      ACTIVE_CHAT_STORAGE_KEY,
+      getActiveChatStorageKey(),
       newChat.id
     );
 
     localStorage.setItem(
-      THREAD_STORAGE_KEY,
+      getThreadStorageKey(),
       newChat.threadId
     );
 
-    try {
-      localStorage.setItem(
-        CHAT_STORAGE_KEY,
-        JSON.stringify(
-          updatedChats
-        )
-      );
-    } catch {
-      // Local storage persistence is optional.
-    }
-
-    setSaveNotice(
-      "Cleared"
-    );
+    // Blank drafts stay in memory until the user sends a message.
   }
+
 
   function handleOpenConversation(
     chatId
@@ -1021,19 +892,22 @@ Start with Stage 1 only.
     setError("");
 
     localStorage.setItem(
-      ACTIVE_CHAT_STORAGE_KEY,
+      getActiveChatStorageKey(),
       selectedChat.id
     );
 
     localStorage.setItem(
-      THREAD_STORAGE_KEY,
+      getThreadStorageKey(),
       selectedChat.threadId
     );
   }
 
 
   function handleSaveChat() {
-    if (!activeChatId) {
+    if (
+      !activeChatId ||
+      messages.length === 0
+    ) {
       return;
     }
 
@@ -1061,19 +935,31 @@ Start with Stage 1 only.
       updatedChats
     );
 
+    const persistedChats =
+      updatedChats.filter(
+        (chat) =>
+          Array.isArray(
+            chat.messages
+          ) &&
+          chat.messages.length > 0
+      );
+
     try {
       localStorage.setItem(
-        CHAT_STORAGE_KEY,
+        getChatStorageKey(),
         JSON.stringify(
-          updatedChats
+          persistedChats
         )
       );
 
       setSaveNotice(
         "Saved"
       );
-    } catch {
-     
+    } catch (storageError) {
+      console.error(
+        "Career AI chat could not be saved:",
+        storageError
+      );
 
       setError(
         "This conversation could not be saved in your browser."
@@ -1082,8 +968,6 @@ Start with Stage 1 only.
   }
 
 
-
-    
   function handleClearChat() {
     if (
       loading ||
@@ -1102,17 +986,26 @@ Start with Stage 1 only.
       chatHistory.map(
         (chat) =>
           chat.id ===
-            activeChatId
+          activeChatId
             ? {
-              ...chat,
-              title:
-                "New conversation",
-              threadId:
-                freshThreadId,
-              messages: [],
-              updatedAt: now,
-            }
+                ...chat,
+                title:
+                  "New conversation",
+                threadId:
+                  freshThreadId,
+                messages: [],
+                updatedAt: now,
+              }
             : chat
+      );
+
+    const persistedChats =
+      updatedChats.filter(
+        (chat) =>
+          Array.isArray(
+            chat.messages
+          ) &&
+          chat.messages.length > 0
       );
 
     setChatHistory(
@@ -1124,26 +1017,118 @@ Start with Stage 1 only.
     setError("");
 
     localStorage.setItem(
-      THREAD_STORAGE_KEY,
+      getThreadStorageKey(),
       freshThreadId
     );
 
     try {
       localStorage.setItem(
-        CHAT_STORAGE_KEY,
+        getChatStorageKey(),
         JSON.stringify(
-          updatedChats
+          persistedChats
         )
       );
-    } catch {
-      // Local storage persistence is optional.
+    } catch (storageError) {
+      console.error(
+        "Career AI cleared chat could not be saved:",
+        storageError
+      );
     }
 
     setSaveNotice(
       "Cleared"
     );
-
   }
+
+
+  function handleDeleteConversation() {
+    if (
+      loading ||
+      !activeChatId
+    ) {
+      return;
+    }
+
+    const remainingChats =
+      chatHistory.filter(
+        (chat) =>
+          chat.id !==
+          activeChatId
+      );
+
+    const persistedChats =
+      remainingChats.filter(
+        (chat) =>
+          Array.isArray(
+            chat.messages
+          ) &&
+          chat.messages.length > 0
+      );
+
+    let nextChat =
+      remainingChats[0];
+
+    let updatedChats =
+      remainingChats;
+
+    if (!nextChat) {
+      nextChat =
+        createEmptyChat();
+
+      updatedChats = [
+        nextChat,
+      ];
+    }
+
+    setChatHistory(
+      updatedChats
+    );
+
+    setActiveChatId(
+      nextChat.id
+    );
+
+    setMessages(
+      nextChat.messages || []
+    );
+
+    setMessage("");
+    setError("");
+    setSearchQuery("");
+
+    localStorage.setItem(
+      getActiveChatStorageKey(),
+      nextChat.id
+    );
+
+    localStorage.setItem(
+      getThreadStorageKey(),
+      nextChat.threadId
+    );
+
+    try {
+      localStorage.setItem(
+        getChatStorageKey(),
+        JSON.stringify(
+          persistedChats
+        )
+      );
+
+      setSaveNotice(
+        "Deleted"
+      );
+    } catch (storageError) {
+      console.error(
+        "Career AI conversation could not be deleted:",
+        storageError
+      );
+
+      setError(
+        "This conversation could not be deleted from your browser."
+      );
+    }
+  }
+
 
   /* ==================================================
      SEND MESSAGE
@@ -1212,7 +1197,11 @@ Start with Stage 1 only.
       const apiData =
         response.data;
 
-      
+      console.log(
+        "Career AI API response:",
+        apiData
+      );
+
       let assistantResponse =
         apiData.data ??
         apiData.response ??
@@ -1243,6 +1232,11 @@ Start with Stage 1 only.
         ]
       );
     } catch (err) {
+      console.error(
+        "Career AI request failed:",
+        err
+      );
+
       setError(
         err.response?.data?.detail ||
         err.message ||
@@ -1528,19 +1522,6 @@ Do not add technologies or features that were not actually implemented.
     );
 
 
-  const suggestionContext =
-    message.trim() ||
-    getLatestUserPrompt(
-      messages
-    );
-
-
-  const suggestedQuestions =
-    getContextualSuggestions(
-      suggestionContext
-    );
-
-
   return (
     <section>
 
@@ -1759,7 +1740,8 @@ Do not add technologies or features that were not actually implemented.
                   handleSaveChat
                 }
                 disabled={
-                  !activeChatId
+                  !activeChatId ||
+                  messages.length === 0
                 }
                 className="inline-flex h-9 items-center gap-2 rounded-lg border border-border-soft bg-white px-3 text-xs font-semibold text-midnight transition hover:border-emerald-200 hover:bg-emerald-50/40 disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -1777,11 +1759,27 @@ Do not add technologies or features that were not actually implemented.
                   loading ||
                   messages.length === 0
                 }
+                className="inline-flex h-9 items-center gap-2 rounded-lg border border-border-soft bg-white px-3 text-xs font-semibold text-midnight transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <XCircle size={15} />
+
+                Clear chat
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  handleDeleteConversation
+                }
+                disabled={
+                  loading ||
+                  !activeChatId
+                }
                 className="inline-flex h-9 items-center gap-2 rounded-lg border border-border-soft bg-white px-3 text-xs font-semibold text-midnight transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Trash2 size={15} />
 
-                Clear chat
+                Delete
               </button>
 
             </div>
@@ -1892,7 +1890,7 @@ Do not add technologies or features that were not actually implemented.
 
             <div className="mt-3 flex flex-wrap gap-2">
 
-              {suggestedQuestions.map(
+              {PROMPT_SUGGESTIONS.map(
                 (suggestion) => (
                   <PromptChip
                     key={suggestion}

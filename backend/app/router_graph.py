@@ -180,6 +180,42 @@ def intent_router_node(
 ):
     message = state["message"].lower()
 
+    # --------------------------------------------------
+    # Context-reference detection
+    # --------------------------------------------------
+    # These phrases mean the user wants to USE an existing
+    # analysis as context, not generate a brand-new analysis.
+    # They must be checked before generic skill-gap keywords.
+
+    existing_analysis_reference_keywords = [
+        "based on my current skill gap",
+        "based on my current skill-gap",
+        "based on my existing skill gap",
+        "based on my existing skill-gap",
+        "based on my skill gap analysis",
+        "based on my skill-gap analysis",
+        "using my current skill gap",
+        "using my current skill-gap",
+        "using my existing skill gap",
+        "using my existing skill-gap",
+        "current skill gap analysis",
+        "current skill-gap analysis",
+        "existing skill gap analysis",
+        "existing skill-gap analysis",
+        "latest skill gap analysis",
+        "latest skill-gap analysis",
+        "30-day preparation plan",
+        "30 day preparation plan",
+    ]
+
+    if any(
+        keyword in message
+        for keyword in existing_analysis_reference_keywords
+    ):
+        return {
+            "intent": "career",
+        }
+
     job_match_keywords = [
         "job match",
         "match my resume",
@@ -326,45 +362,18 @@ def workflow_job_match_node(
         state
     )
 
-    thread_id = state["thread_id"]
-
     job_description = state.get(
         "job_description",
         "",
     )
 
-    # --------------------------------------------------
-    # 1. Validate resume availability
-    # --------------------------------------------------
-
-    if not resume_exists(
-        thread_id
-    ):
-        return {
-            "job_match_analysis": (
-                "Resume is not indexed "
-                "for this conversation."
-            )
-        }
-
-    # --------------------------------------------------
-    # 2. Validate job description
-    # --------------------------------------------------
-
-    if not job_description.strip():
-        return {
-            "job_match_analysis": (
-                "Job description was not provided."
-            )
-        }
-
-    # --------------------------------------------------
-    # 3. Validate resume ID
-    # --------------------------------------------------
-
     resume_id = state.get(
         "resume_id"
     )
+
+    # --------------------------------------------------
+    # 1. Validate resume ID
+    # --------------------------------------------------
 
     if resume_id is None:
         return {
@@ -376,11 +385,37 @@ def workflow_job_match_node(
         }
 
     # --------------------------------------------------
+    # 2. Validate resume availability
+    # --------------------------------------------------
+
+    if not resume_exists(
+        str(resume_id),
+        user_id=str(state["user_id"]),
+    ):
+        return {
+            "job_match_analysis": (
+                "Resume is not indexed "
+                "for the selected resume."
+            )
+        }
+
+    # --------------------------------------------------
+    # 3. Validate job description
+    # --------------------------------------------------
+
+    if not job_description.strip():
+        return {
+            "job_match_analysis": (
+                "Job description was not provided."
+            )
+        }
+
+    # --------------------------------------------------
     # 4. Open persistent Chroma collection
     # --------------------------------------------------
 
     vector_store = get_resume_vector_store(
-        thread_id
+        str(resume_id)
     )
 
     # --------------------------------------------------
@@ -546,23 +581,23 @@ def skill_gap_advisor_node(
         state
     )
 
-    thread_id = state["thread_id"]
-
     job_description = state.get(
         "job_description",
         "",
     )
 
+    resume_id = state.get(
+        "resume_id"
+    )
+
     # --------------------------------------------------
-    # 1. Validate resume availability
+    # 1. Validate resume ID
     # --------------------------------------------------
 
-    if not resume_exists(
-        thread_id
-    ):
+    if resume_id is None:
         response_text = (
-            "I do not have your resume indexed yet. "
-            "Please upload your resume first."
+            "CareerPilot could not run the skill-gap "
+            "analysis because no resume ID was provided."
         )
 
         return {
@@ -575,7 +610,29 @@ def skill_gap_advisor_node(
         }
 
     # --------------------------------------------------
-    # 2. Validate job description
+    # 2. Validate resume availability
+    # --------------------------------------------------
+
+    if not resume_exists(
+        str(resume_id),
+        user_id=str(state["user_id"]),
+    ):
+        response_text = (
+            "I could not find the selected indexed "
+            "resume for your account."
+        )
+
+        return {
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
+
+    # --------------------------------------------------
+    # 3. Validate job description
     # --------------------------------------------------
 
     if not job_description.strip():
@@ -595,34 +652,11 @@ def skill_gap_advisor_node(
         }
 
     # --------------------------------------------------
-    # 3. Validate resume ID
-    # --------------------------------------------------
-
-    resume_id = state.get(
-        "resume_id"
-    )
-
-    if resume_id is None:
-        response_text = (
-            "CareerPilot could not run the skill-gap "
-            "analysis because no resume ID was provided."
-        )
-
-        return {
-            "response": response_text,
-            "messages": [
-                AIMessage(
-                    content=response_text
-                )
-            ],
-        }
-
-    # --------------------------------------------------
     # 4. Open persistent Chroma collection
     # --------------------------------------------------
 
     vector_store = get_resume_vector_store(
-        thread_id
+        str(resume_id)
     )
 
     # --------------------------------------------------
@@ -887,10 +921,149 @@ def career_advisor_node(
         )
     )
 
+    # --------------------------------------------------
+    # Resume-aware general guidance
+    # --------------------------------------------------
+    # Career AI conversations use their own thread_id, while
+    # resume vectors are stored under resume_id. Whenever a
+    # selected resume is available, retrieve grounded evidence
+    # so generic career guidance does not depend on React
+    # sending a manually-maintained skills list.
+
+    resume_context = (
+        "No selected resume context is available for this request."
+    )
+
+    resume_id = state.get(
+        "resume_id"
+    )
+
+    if resume_id is not None:
+        try:
+            if resume_exists(
+                str(resume_id),
+                user_id=str(
+                    state["user_id"]
+                ),
+            ):
+                vector_store = (
+                    get_resume_vector_store(
+                        str(resume_id)
+                    )
+                )
+
+                filters = (
+                    get_resume_filters(
+                        state
+                    )
+                )
+
+                retrieval_query = (
+                    "Candidate profile, programming languages, "
+                    "technical skills, frameworks, databases, "
+                    "cloud, tools, projects, internships, "
+                    "education, achievements, and experience. "
+                    f"Current career question: {user_message}"
+                )
+
+                retrieved_docs = search_resume(
+                    vector_store,
+                    retrieval_query,
+                    k=6,
+                    user_id=filters["user_id"],
+                    resume_id=filters["resume_id"],
+                )
+
+                if retrieved_docs:
+                    resume_context = "\n\n".join(
+                        doc.page_content
+                        for doc in retrieved_docs
+                    )
+
+        except Exception:
+            # General guidance should remain available even if
+            # optional resume retrieval temporarily fails.
+            resume_context = (
+                "The selected resume could not be retrieved "
+                "for this turn."
+            )
+
+    # --------------------------------------------------
+    # Reuse existing analysis state when available
+    # --------------------------------------------------
+    # LangGraph memory can already contain earlier workflow
+    # outputs for the same conversation. Treat them as optional
+    # context instead of forcing a new Skill Gap / Job Match run.
+
+    existing_job_match = (
+        state.get(
+            "job_match_analysis",
+            "",
+        )
+        or ""
+    )
+
+    existing_skill_gap = (
+        state.get(
+            "skill_gap_analysis",
+            "",
+        )
+        or ""
+    )
+
+    existing_career_plan = (
+        state.get(
+            "career_plan",
+            "",
+        )
+        or ""
+    )
+
+    analysis_context_parts = []
+
+    if existing_job_match.strip():
+        analysis_context_parts.append(
+            "EXISTING JOB MATCH ANALYSIS\n"
+            + existing_job_match
+        )
+
+    if existing_skill_gap.strip():
+        analysis_context_parts.append(
+            "EXISTING SKILL GAP ANALYSIS\n"
+            + existing_skill_gap
+        )
+
+    if existing_career_plan.strip():
+        analysis_context_parts.append(
+            "EXISTING CAREER PLAN\n"
+            + existing_career_plan
+        )
+
+    existing_analysis_context = (
+        "\n\n".join(
+            analysis_context_parts
+        )
+        if analysis_context_parts
+        else (
+            "No persisted analysis output is available "
+            "inside this conversation state."
+        )
+    )
+
     prompt = f"""
 You are the Career Guidance Specialist inside CareerPilot AI.
 
+USER PROFILE
+
 {user_context}
+
+RETRIEVED RESUME EVIDENCE
+
+{resume_context}
+
+AVAILABLE EXISTING ANALYSIS CONTEXT
+
+{existing_analysis_context}
 
 CONVERSATION HISTORY
 
@@ -901,7 +1074,9 @@ software engineering career decisions.
 
 You should:
 
+- use retrieved resume evidence whenever it is available
 - use the user's existing skills and background
+- use existing Job Match, Skill Gap, or Career Plan context when available
 - use previous conversation context when relevant
 - avoid recommending skills they already know unless deeper knowledge is useful
 - prioritize what the user should do NEXT
@@ -914,11 +1089,14 @@ You should:
 
 Important:
 
-- Never ask for information that is already available in USER PROFILE.
+- Never claim that resume evidence or an analysis contains information that is not present.
+- Never invent skills, projects, achievements, certifications, experience, or metrics.
+- Never ask for skills that are already clearly visible in RETRIEVED RESUME EVIDENCE.
+- If USER PROFILE says a field is not provided but the resume evidence clearly supplies it, use the resume evidence.
+- When the user says "my current skill-gap analysis" or "my existing skill-gap analysis", treat that as a request to USE existing context, not automatically create a new Skill Gap analysis.
+- If no existing Skill Gap output is available in the conversation state, do not pretend one was loaded. Use the resume evidence and clearly frame any additional recommendations as guidance rather than as previously-saved analysis.
 - Remember preferences or goals mentioned earlier in the conversation.
-- Base recommendations on the user's target role, career goal,
-  existing skills, and previous messages.
-- If a profile field says "Not provided", ask for it only if it is genuinely needed.
+- Base recommendations on the user's target role, career goal, existing skills, retrieved evidence, and previous messages.
 - Do not ignore earlier conversation context when answering follow-up questions.
 
 Current user request:
@@ -955,22 +1133,46 @@ def resume_advisor_node(
         state
     )
 
-    thread_id = state["thread_id"]
+    resume_id = state.get(
+        "resume_id"
+    )
+
+    if resume_id is None:
+        response_text = (
+            "Please select or upload a resume "
+            "before requesting resume analysis."
+        )
+
+        return {
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
 
     if not resume_exists(
-        thread_id
+        str(resume_id),
+        user_id=str(state["user_id"]),
     ):
+        response_text = (
+            "I could not find the selected indexed "
+            "resume for your account."
+        )
+
         return {
-            "response": (
-                "I do not have a resume "
-                "indexed for this conversation yet. "
-                "Please upload your resume PDF first."
-            )
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
         }
 
     vector_store = (
         get_resume_vector_store(
-            thread_id
+            str(resume_id)
         )
     )
 
@@ -1542,23 +1744,23 @@ def job_match_advisor_node(
         state
     )
 
-    thread_id = state["thread_id"]
-
     job_description = state.get(
         "job_description",
         "",
     )
 
+    resume_id = state.get(
+        "resume_id"
+    )
+
     # --------------------------------------------------
-    # 1. Validate resume availability
+    # 1. Validate resume ID
     # --------------------------------------------------
 
-    if not resume_exists(
-        thread_id
-    ):
+    if resume_id is None:
         response_text = (
-            "I do not have your resume indexed yet. "
-            "Please upload your resume first."
+            "CareerPilot could not run the job-match "
+            "analysis because no resume ID was provided."
         )
 
         return {
@@ -1571,7 +1773,29 @@ def job_match_advisor_node(
         }
 
     # --------------------------------------------------
-    # 2. Validate job description
+    # 2. Validate resume availability
+    # --------------------------------------------------
+
+    if not resume_exists(
+        str(resume_id),
+        user_id=str(state["user_id"]),
+    ):
+        response_text = (
+            "I could not find the selected indexed "
+            "resume for your account."
+        )
+
+        return {
+            "response": response_text,
+            "messages": [
+                AIMessage(
+                    content=response_text
+                )
+            ],
+        }
+
+    # --------------------------------------------------
+    # 3. Validate job description
     # --------------------------------------------------
 
     if not job_description.strip():
@@ -1590,34 +1814,11 @@ def job_match_advisor_node(
         }
 
     # --------------------------------------------------
-    # 3. Validate resume ID
-    # --------------------------------------------------
-
-    resume_id = state.get(
-        "resume_id"
-    )
-
-    if resume_id is None:
-        response_text = (
-            "CareerPilot could not run the job-match "
-            "analysis because no resume ID was provided."
-        )
-
-        return {
-            "response": response_text,
-            "messages": [
-                AIMessage(
-                    content=response_text
-                )
-            ],
-        }
-
-    # --------------------------------------------------
     # 4. Open persistent Chroma collection
     # --------------------------------------------------
 
     vector_store = get_resume_vector_store(
-        thread_id
+        str(resume_id)
     )
 
     # --------------------------------------------------

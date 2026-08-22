@@ -11,6 +11,7 @@ import CareerAI from "./pages/CareerAI";
 import CareerPlan from "./pages/CareerPlan";
 import Dashboard from "./pages/Dashboard";
 import History from "./pages/History";
+import HistoryDetail from "./pages/HistoryDetail";
 import Home from "./pages/Home";
 import JobMatch from "./pages/JobMatch";
 import Login from "./pages/Login";
@@ -142,6 +143,16 @@ function App() {
             path="/history"
             element={
               <History />
+            }
+          />
+
+
+          {/* Analysis History Detail */}
+
+          <Route
+            path="/history/:jobMatchId"
+            element={
+              <HistoryDetail />
             }
           />
 

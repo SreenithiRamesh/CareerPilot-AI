@@ -132,9 +132,8 @@ async def upload_resume(
     try:
         # 10. Create embeddings and persist vectors.
         #
-        # The authenticated user ID and database-generated
-        # resume ID are passed to the vector layer so the
-        # chunks can be associated with their owner.
+        # resume_id is the Chroma collection identity.
+        # thread_id is retained only as upload metadata.
         save_resume_vector_store(
             thread_id=thread_id,
             chunks=chunks,
@@ -145,8 +144,10 @@ async def upload_resume(
         # 11. Mark resume processing as completed
         resume.processing_status = "completed"
 
+        # Keep MySQL metadata aligned with the
+        # resume_id-based Chroma collection identity.
         resume.vector_collection_id = (
-            f"resume_{thread_id}"
+            f"resume_{resume.id}"
         )
 
         db.commit()
@@ -177,6 +178,9 @@ async def upload_resume(
         "characters": len(extracted_text),
         "chunks_count": len(chunks),
         "processing_status": resume.processing_status,
+        "vector_collection_id": (
+            resume.vector_collection_id
+        ),
         "message": (
             "Resume processed and indexed successfully."
         ),
