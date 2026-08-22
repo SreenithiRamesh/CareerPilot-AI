@@ -576,22 +576,73 @@ Sensitive credentials must never be stored directly in source code.
 
 ## 📸 Product Preview
 
-> Product screenshots will be added as the UI reaches the final presentation checkpoint.
+### 🏠 CareerPilot AI — Home
 
-Suggested preview set:
+CareerPilot introduces the complete career-readiness workflow through a clean, focused interface designed for students and fresh graduates.
 
-```text
-docs/screenshots/
-├── home.png
-├── dashboard.png
-├── resume.png
-├── job-match.png
-├── skill-gap.png
-├── career-ai.png
-├── career-plan.png
-├── mock-interview.png
-└── history.png
-```
+<div align="center">
+  <img
+    src="docs/screenshots/home-hero.png"
+    alt="CareerPilot AI Home Page"
+    width="100%"
+  />
+</div>
+
+<br />
+
+### 🔄 From Resume to Career Roadmap
+
+CareerPilot transforms one resume through four focused stages — **Parse, Match, Diagnose, and Plan** — turning raw profile information into actionable career guidance.
+
+<div align="center">
+  <img
+    src="docs/screenshots/home-workflow.png"
+    alt="CareerPilot AI Four Stage Career Analysis Workflow"
+    width="100%"
+  />
+</div>
+
+<br />
+
+### 🎯 Explainable Career Insights
+
+Instead of returning only a match score, CareerPilot separates **strong matches, partial matches, and priority skill gaps** so users can understand why they received a particular result.
+
+<div align="center">
+  <img
+    src="docs/screenshots/home-career-insights.png"
+    alt="CareerPilot AI Explainable Career Insights"
+    width="100%"
+  />
+</div>
+
+<br />
+
+### 💡 Product Guidance
+
+Built-in guidance explains how Career AI, Job Match, Skill Gap Analysis, Career Readiness Reports, and Mock Interviews work together.
+
+<div align="center">
+  <img
+    src="docs/screenshots/home-faq.png"
+    alt="CareerPilot AI Product FAQ"
+    width="100%"
+  />
+</div>
+
+<br />
+
+### 🚀 Start Your Career Analysis
+
+CareerPilot provides a clear path from resume upload to personalized career preparation.
+
+<div align="center">
+  <img
+    src="docs/screenshots/home-cta.png"
+    alt="CareerPilot AI Career Analysis Call to Action"
+    width="100%"
+  />
+</div>
 
 Once screenshots are added, this section can become a visual product walkthrough.
 
