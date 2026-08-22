@@ -1,383 +1,809 @@
 <div align="center">
 
-CareerPilot AI
+🚀 CareerPilot AI
 
-AI-Powered Career Intelligence Platform for Students & Fresh Graduates
+Resume-Grounded Career Intelligence for Software Engineering Aspirants
 
-Transform your resume into actionable career intelligence — from job matching and skill-gap analysis to personalized career planning and AI-powered interview preparation.
+From resume evidence to job-fit analysis, skill-gap discovery, project proof, career planning, AI guidance, mock interviews, and exportable career-readiness reports — in one persistent workspace.
 
-<br />
+<br>
 
-<br />
+React 19 · FastAPI · LangChain · LangGraph · Google Gemini · MySQL · ChromaDB · JWT · RAG
 
-React • FastAPI • LangChain • LangGraph • Google Gemini • MySQL • ChromaDB • JWT • RAG
+<br>
+
+<img src="./docs/screenshots/home-hero.png" alt="CareerPilot AI Home" width="100%">
+
+<br>
+
+Built as a full-stack Applied AI portfolio project with authenticated workflows, persistent analysis history, resume-grounded retrieval, structured AI outputs, and interview preparation.
 
 </div>
 
-📌 Overview
+📖 Table of Contents
 
-CareerPilot AI is a full-stack AI-powered career intelligence platform designed for students, fresh graduates, and early-career software professionals.
+Why CareerPilot AI
 
-Instead of providing generic career advice, CareerPilot uses the user's actual resume as contextual evidence to generate personalized career insights.
+What the Platform Does
 
-The platform combines Retrieval-Augmented Generation (RAG), semantic resume retrieval, structured AI workflows, job-description analysis, persistent application data, and conversational AI to help users understand:
+End-to-End Product Flow
 
-how well their profile matches a target role,
+System Architecture
 
-which skills they are currently missing,
+AI Orchestration
 
-what they should learn next,
+Resume RAG Architecture
 
-how they can improve their career readiness,
+Data & Persistence Architecture
 
-and how prepared they are for interviews.
+Technology Stack
 
-✨ Core Features
+Product Walkthrough
+
+Project Structure
+
+API Overview
+
+Security & User Isolation
+
+Local Development
+
+Testing & Quality Gates
+
+Engineering Highlights
+
+Roadmap
+
+Author
+
+🎯 Why CareerPilot AI
+
+A resume contains useful evidence about a candidate, but turning that evidence into a practical career strategy usually requires several disconnected activities: comparing a profile with job descriptions, identifying missing skills, deciding what to learn, building proof of those skills, preparing for interviews, and tracking previous analyses.
+
+CareerPilot AI brings that workflow into one system.
+
+Instead of behaving like a generic chatbot, CareerPilot uses the user's selected resume as persistent career context. It combines structured application data with Retrieval-Augmented Generation (RAG) and specialized LangGraph workflows so recommendations can be grounded in the user's actual skills, projects, experience, and target role.
+
+The core idea
+
+Resume evidence → Role requirements → Skill gaps → Proof of skill → Career plan → Interview readiness
+
+The platform is designed especially for students and fresh graduates who need actionable guidance without repeatedly explaining their background in every AI conversation.
+
+✨ What the Platform Does
+
+Capability
+
+What CareerPilot Provides
 
 📄 Resume Intelligence
 
-Upload a PDF resume and transform it into structured career context.
+PDF processing, semantic indexing, active-resume context, and resume-grounded retrieval
 
-PDF text extraction
+🎯 Job Match
 
-Resume chunking
+Match score, strong matches, partial matches, missing skills, resume improvements, and priority actions
 
-Gemini embeddings
+📊 Skill Gap
 
-Chroma vector storage
+Existing skills, missing skills, priority gaps, learning order, practice tasks, and proof-of-skill actions
 
-Semantic resume retrieval
+🧱 Build Evidence
 
-Resume-grounded AI responses
+Portfolio project prompts that turn missing skills into demonstrable engineering work
 
-Active resume management
+🗺️ Career Plan
 
-🎯 Job Match Analysis
-
-Compare an uploaded resume against a target job description.
-
-CareerPilot evaluates:
-
-overall job-match score,
-
-strong skill matches,
-
-partial matches,
-
-missing requirements,
-
-resume improvement opportunities,
-
-and priority actions.
-
-The analysis is persisted so users can revisit previous results.
-
-📊 Skill Gap Analysis
-
-Convert job-match results into a prioritized learning strategy.
-
-Skill gaps are classified based on importance and transformed into actionable recommendations, helping users understand what to learn first instead of receiving an unstructured list of missing technologies.
-
-🗺️ Career Planning
-
-Generate a structured career-development roadmap based on the user's profile and target role.
-
-CareerPilot can provide:
-
-prioritized learning goals,
-
-practical development tasks,
-
-project recommendations,
-
-career-readiness guidance,
-
-immediate next actions,
-
-and structured progression plans.
+Readiness summary, priorities, practical tasks, portfolio evidence, interview focus, and a 30-day roadmap
 
 🤖 Career AI
 
-A resume-aware conversational career assistant powered by LangChain, LangGraph, and Google Gemini.
+Resume-aware conversational guidance with persisted context and specialized intent routing
 
-Career AI combines:
+🧑‍💻 Project Coach
 
-resume context,
-
-semantic retrieval,
-
-conversation threads,
-
-routing workflows,
-
-career guidance,
-
-project guidance,
-
-interview preparation,
-
-and contextual AI responses.
-
-The goal is to provide guidance grounded in what the user has actually built and learned.
+Step-by-step project execution, README guidance, resume bullets, and project interview preparation
 
 🎤 Mock Interview
 
-Practice interviews generated around the user's actual career profile.
-
-Interview sessions can incorporate:
-
-resume context,
-
-target job information,
-
-identified skill gaps,
-
-interview type,
-
-adaptive questions,
-
-answer evaluation,
-
-feedback,
-
-and final readiness summaries.
-
-Interview sessions are persisted for structured practice.
+Contextual questions, answer evaluation, feedback, and session summaries
 
 🕘 Analysis History
 
-CareerPilot maintains previous career analyses so users do not lose earlier results.
+Persistent Job Match, Skill Gap, and Career Plan results scoped to the authenticated user
 
-Users can revisit historical:
+📥 PDF Export
 
-Job Match analyses
+Downloadable saved-analysis reports for offline review
 
-Skill Gap reports
-
-Career Plans
-
-associated career insights
-
-This turns CareerPilot from a one-time AI prompt into a persistent career-development workspace.
-
-📥 Career Readiness Reports
-
-CareerPilot supports PDF report generation for career-analysis results.
-
-Reports can consolidate career intelligence such as:
-
-Job Match
-
-Skill Gap
-
-Career Plan
-
-learning priorities
-
-action plans
-
-interview preparation insights
-
-This allows users to keep an offline snapshot of their career-readiness progress.
-
-🔐 Authentication & User Isolation
-
-CareerPilot includes JWT-based authentication and user-scoped application data.
-
-Implemented capabilities include:
-
-user registration,
-
-secure login,
-
-password hashing,
-
-JWT access tokens,
-
-protected frontend routes,
-
-authenticated backend endpoints,
-
-user-owned resume access,
-
-and user-specific analysis persistence.
-
-🧠 AI & RAG Workflow
-
-CareerPilot does not rely only on a single prompt.
-
-Resume information is processed through a retrieval pipeline so relevant evidence can be supplied to the AI when needed.
+🔄 End-to-End Product Flow
 
 flowchart LR
-A[Resume PDF] --> B[PDF Text Extraction]
-B --> C[Text Chunking]
-C --> D[Gemini Embeddings]
-D --> E[(ChromaDB)]
-F[User Query] --> G[Semantic Search]
-E --> G
-G --> H[Relevant Resume Context]
-H --> I[LangChain / LangGraph]
-F --> I
-I --> J[Google Gemini]
-J --> K[Personalized Career Response]
+    A[Create Account] --> B[Upload Resume]
+    B --> C[Resume Indexed]
+    C --> D[Add Job Description]
+    D --> E[Job Match]
+    E --> F[Skill Gap]
+    F --> G[Build Evidence]
+    G --> H[Career Plan]
+    H --> I[Career AI]
+    I --> J[Project Coach]
+    J --> K[Mock Interview]
+    K --> L[History]
+    L --> M[PDF Export]
 
-This architecture enables CareerPilot to generate responses that are grounded in resume evidence rather than relying entirely on generic model knowledge.
+CareerPilot is intentionally designed as a connected workflow. Resume context is reused across features, analyses are persisted, and Career AI can continue from existing career intelligence instead of treating each page as an isolated prompt.
 
-🏗️ Application Architecture
+🏗️ System Architecture
 
-flowchart TD
-USER[User] --> UI[React Frontend]
+flowchart TB
+    U[User / Browser]
 
-    UI --> AUTH[JWT Authentication]
-    UI --> API[FastAPI REST API]
+    subgraph FE[Frontend - React + Vite]
+        UI[CareerPilot UI]
+        ROUTES[Protected Routes]
+        AXIOS[Axios API Client]
+    end
 
-    API --> SQL[(MySQL)]
-    API --> AI[AI Services]
-    API --> VECTOR[(ChromaDB)]
+    subgraph BE[Backend - FastAPI]
+        API[REST API]
+        AUTH[JWT Authentication]
+        GRAPH[LangGraph Router]
+        SERVICES[Analysis Services]
+        RAG[Resume RAG Service]
+    end
 
-    AI --> LC[LangChain]
-    AI --> LG[LangGraph]
+    subgraph AI[AI Layer]
+        LC[LangChain]
+        GEMINI[Google Gemini]
+        EMB[Gemini Embeddings]
+    end
 
-    LC --> GEMINI[Google Gemini]
-    LG --> GEMINI
+    subgraph DATA[Persistence Layer]
+        MYSQL[(MySQL)]
+        CHROMA[(ChromaDB)]
+    end
 
-    VECTOR --> EMB[Gemini Embeddings]
+    U --> UI
+    UI --> ROUTES
+    ROUTES --> AXIOS
+    AXIOS --> API
 
-    SQL --> USERS[Users]
-    SQL --> RESUMES[Resume Metadata]
-    SQL --> ANALYSIS[Career Analyses]
-    SQL --> INTERVIEWS[Mock Interview Sessions]
+    API --> AUTH
+    API --> GRAPH
+    API --> SERVICES
+    GRAPH --> LC
+    SERVICES --> LC
+    LC --> GEMINI
 
-Storage Responsibilities
+    API --> RAG
+    RAG --> EMB
+    EMB --> CHROMA
+    RAG --> CHROMA
+
+    AUTH --> MYSQL
+    SERVICES --> MYSQL
+    API --> MYSQL
+
+Architecture responsibilities
 
 Layer
 
 Responsibility
 
+React frontend
+
+Product UI, protected navigation, analysis workspaces, conversation UI, report actions
+
+FastAPI backend
+
+Authentication, request validation, orchestration, persistence, resume processing, API contracts
+
+LangGraph
+
+Intent routing and specialized career-analysis workflow orchestration
+
+LangChain
+
+Model integration, prompts, structured outputs, retrieval-aware AI operations
+
+Google Gemini
+
+Career reasoning, analysis generation, interview evaluation, and embedding generation
+
 MySQL
 
-Users, resume metadata, analyses, workflow state and interview sessions
+Users, resume metadata, conversations, job descriptions, analyses, plans, and interview sessions
 
 ChromaDB
 
-Resume chunks, embeddings and semantic retrieval
+Persistent vector collections containing resume chunks and metadata
 
-Gemini
+JWT
 
-LLM reasoning, structured generation and embeddings
+Authenticated API access and user-scoped workflows
 
-Browser Storage
+🧠 AI Orchestration
 
-Selected client-side UI/session state
+CareerPilot does not send every request through one generic prompt. The backend routes user intent to the appropriate workflow.
+
+flowchart TD
+    Q[User Request] --> R[LangGraph Intent Router]
+
+    R -->|General career guidance| CA[Career Advisor]
+    R -->|Resume question| RA[Resume Analysis]
+    R -->|Role comparison| JM[Job Match]
+    R -->|Missing skills| SG[Skill Gap]
+    R -->|Preparation roadmap| CP[Career Plan]
+    R -->|Build a project| PC[Project Coach]
+
+    RES[Selected Resume Context] --> CA
+    RES --> RA
+    RES --> JM
+    RES --> SG
+    RES --> CP
+    RES --> PC
+
+    SAVED[Persisted Skill Gap Context] --> CA
+
+    JM --> DB[(Persist Analysis)]
+    SG --> DB
+    CP --> DB
+
+This separation keeps outputs purpose-specific while still allowing Career AI to reuse resume evidence and previously generated career context.
+
+🔎 Resume RAG Architecture
+
+The resume pipeline is the grounding layer behind CareerPilot.
+
+flowchart LR
+    PDF[Resume PDF] --> EXTRACT[Extract Text]
+    EXTRACT --> SPLIT[Recursive Text Chunking]
+    SPLIT --> EMBED[Gemini Embeddings]
+    EMBED --> VECTOR[(ChromaDB)]
+
+    QUERY[Career Query] --> SEARCH[Semantic Search]
+    VECTOR --> SEARCH
+    SEARCH --> CONTEXT[Relevant Resume Chunks]
+    CONTEXT --> PROMPT[Grounded Prompt]
+    QUERY --> PROMPT
+    PROMPT --> LLM[Gemini]
+    LLM --> ANSWER[Personalized Response]
+
+Resume-level vector identity
+
+Resume vector collections are associated with the resume ID, not a single conversation thread. This lets one selected resume support multiple Career AI conversations and downstream analysis workflows while keeping resume ownership tied to the authenticated user.
+
+🗃 Data & Persistence Architecture
+
+CareerPilot uses two storage systems because structured application state and semantic retrieval solve different problems.
+
+flowchart TD
+    USER[Authenticated User] --> RESUME[Resume Metadata]
+    USER --> CONV[Conversations]
+    USER --> JD[Job Descriptions]
+
+    RESUME --> MATCH[Job Match Results]
+    JD --> MATCH
+
+    RESUME --> GAP[Skill Gap Reports]
+    JD --> GAP
+
+    RESUME --> PLAN[Career Plans]
+    JD --> PLAN
+
+    USER --> INTERVIEW[Mock Interview Sessions]
+
+    RESUME --> VECTORS[(Chroma Resume Collection)]
+
+MySQL stores
+
+user accounts and authentication-related application data,
+
+resume metadata and processing status,
+
+conversation/thread metadata,
+
+job descriptions,
+
+Job Match results,
+
+Skill Gap reports,
+
+Career Plans,
+
+Mock Interview sessions and related state.
+
+ChromaDB stores
+
+resume text chunks,
+
+Gemini embeddings,
+
+resume/user metadata used for semantic retrieval.
+
+This separation allows CareerPilot to preserve transactional career history in MySQL while using vector search only where semantic retrieval adds value.
 
 🛠️ Technology Stack
 
-<div align="center">
-
 Frontend
 
-<img src="https://skillicons.dev/icons?i=react,vite,tailwind,js" alt="Frontend technologies" />
+React 19
 
-React 19 • Vite • Tailwind CSS • JavaScript • Axios • React Router
+Vite
 
-<br />
+React Router
+
+Axios
+
+Tailwind CSS
+
+Lucide React
 
 Backend
 
-<img src="https://skillicons.dev/icons?i=python,fastapi" alt="Backend technologies" />
+Python 3.12
 
-Python 3.12 • FastAPI • SQLAlchemy • Pydantic • Alembic
+FastAPI
 
-<br />
+SQLAlchemy
 
-AI & Retrieval
+Pydantic
 
-LangChain • LangGraph • Google Gemini • Gemini Embeddings • ChromaDB • RAG
+Uvicorn
 
-<br />
+PyPDF
 
-Database
+Applied AI
 
-<img src="https://skillicons.dev/icons?i=mysql" alt="Database technologies" />
+LangChain
 
-MySQL • SQLAlchemy ORM • Alembic Migrations
+LangGraph
 
-<br />
+Google Gemini
 
-Development
+Gemini Embeddings
 
-<img src="https://skillicons.dev/icons?i=git,github,vscode" alt="Development tools" />
+Retrieval-Augmented Generation (RAG)
 
-Git • GitHub • VS Code • Pytest • ESLint
+Structured AI outputs
 
-</div>
+Data
 
-📂 Project Structure
+MySQL
+
+ChromaDB
+
+Authentication & Security
+
+JWT
+
+bcrypt password hashing
+
+protected frontend routes
+
+authenticated backend dependencies
+
+user-owned resource checks
+
+Engineering Tooling
+
+Git
+
+GitHub
+
+ESLint
+
+Pytest
+
+VS Code
+
+WSL2 / Linux development environment
+
+🖥️ Product Walkthrough
+
+The following screenshots show the actual CareerPilot workflow from discovery and authentication through career analysis, AI guidance, interview preparation, history, and report export.
+
+🏠 1. Product Landing Experience
+
+The landing experience introduces CareerPilot as a career-intelligence workflow rather than a standalone chatbot.
+
+Hero
+
+<img src="./docs/screenshots/home-hero.png" alt="CareerPilot AI Hero" width="100%">
+
+Career Intelligence Overview
+
+The product explains how resume evidence is transformed into personalized career insights.
+
+<img src="./docs/screenshots/home-career-insights.png" alt="CareerPilot Career Insights" width="100%">
+
+Product Workflow
+
+The homepage communicates the connected journey from resume analysis to career preparation.
+
+<img src="./docs/screenshots/home-workflow.png" alt="CareerPilot Product Workflow" width="100%">
+
+Frequently Asked Questions
+
+<img src="./docs/screenshots/home-faq.png" alt="CareerPilot FAQ" width="100%">
+
+Call to Action
+
+<img src="./docs/screenshots/home-cta.png" alt="CareerPilot CTA" width="100%">
+
+🔐 2. Authentication
+
+CareerPilot protects personalized career data behind authenticated user accounts.
+
+Registration
+
+<img src="./docs/screenshots/register.png" alt="CareerPilot Registration" width="100%">
+
+Login
+
+<img src="./docs/screenshots/login.png" alt="CareerPilot Login" width="100%">
+
+JWT-backed authentication protects API requests while frontend protected routes keep workspace pages unavailable to unauthenticated users.
+
+📊 3. Career Dashboard
+
+The dashboard acts as the authenticated workspace entry point and provides access to the major CareerPilot workflows.
+
+<img src="./docs/screenshots/dashboard1.png" alt="CareerPilot Dashboard" width="100%">
+
+<img src="./docs/screenshots/dashboard2.png" alt="CareerPilot Dashboard Extended View" width="100%">
+
+📄 4. Resume Intelligence
+
+The Resume workspace establishes the grounding context used by the rest of the platform.
+
+Before Upload
+
+Users select a PDF resume for processing and indexing.
+
+<img src="./docs/screenshots/before_resume_upload.png" alt="CareerPilot Resume Before Upload" width="100%">
+
+After Upload
+
+After processing, CareerPilot stores resume metadata and indexes semantic chunks for later retrieval.
+
+<img src="./docs/screenshots/after_resume_upload.png" alt="CareerPilot Resume After Upload" width="100%">
+
+Pipeline: PDF → text extraction → chunking → Gemini embeddings → ChromaDB → resume-grounded retrieval.
+
+🎯 5. Job Match Workspace
+
+Job Match compares the selected resume with a target role and returns an explainable fit assessment.
+
+Target Job Description
+
+The user provides the target role requirements that become the comparison baseline.
+
+<img src="./docs/screenshots/job%20description.png" alt="CareerPilot Job Description Input" width="100%">
+
+Match Score & Evidence
+
+CareerPilot evaluates the profile across strong matches, partial matches, missing skills, resume improvements, and priority actions instead of returning only a similarity percentage.
+
+<img src="./docs/screenshots/match_score.png" alt="CareerPilot Job Match Score" width="100%">
+
+The completed analysis is persisted so it can be reopened later through Analysis History.
+
+📊 6. Skill Gap Workspace
+
+Skill Gap turns role mismatch into a prioritized development strategy.
+
+Skill Gap Entry Point
+
+The workflow reuses the selected resume and role context instead of requiring the user to rebuild their profile manually.
+
+<img src="./docs/screenshots/skill-gap-initial.png" alt="CareerPilot Skill Gap Initial View" width="100%">
+
+Skill Gap Analysis
+
+CareerPilot separates:
+
+existing skills,
+
+partially demonstrated skills,
+
+missing skills,
+
+high-priority gaps,
+
+medium-priority gaps,
+
+low-priority gaps.
+
+<img src="./docs/screenshots/skill-gap-analysis.png" alt="CareerPilot Skill Gap Analysis" width="100%">
+
+Build Evidence
+
+CareerPilot goes beyond “learn this technology.” Missing capabilities can be converted into portfolio project prompts and proof-of-skill actions that produce evidence a candidate can actually show.
+
+<img src="./docs/screenshots/skill-gap-build-evidence.png" alt="CareerPilot Skill Gap Build Evidence" width="100%">
+
+Action Plan
+
+The final analysis organizes recommended learning order, practice tasks, and concrete next steps.
+
+<img src="./docs/screenshots/skill-gap-action-plan.png" alt="CareerPilot Skill Gap Action Plan" width="100%">
+
+🗺️ 7. Career Plan Workspace
+
+Career Plan converts resume evidence and role-specific gaps into a realistic preparation roadmap.
+
+Career Plan Entry Point
+
+<img src="./docs/screenshots/career-plan-initial.png" alt="CareerPilot Career Plan Initial View" width="100%">
+
+Readiness & Priority Analysis
+
+The plan identifies what deserves attention first and connects learning with practical execution.
+
+<img src="./docs/screenshots/career-plan-analysis-1.png" alt="CareerPilot Career Plan Analysis Part 1" width="100%">
+
+<img src="./docs/screenshots/career-plan-analysis-2.png" alt="CareerPilot Career Plan Analysis Part 2" width="100%">
+
+30-Day Roadmap
+
+CareerPilot translates the analysis into a time-bounded roadmap designed to avoid wasting time on skills already demonstrated in the resume.
+
+<img src="./docs/screenshots/career-plan-30-day-roadmap.png" alt="CareerPilot 30 Day Roadmap" width="100%">
+
+🤖 8. Career AI Workspace
+
+Career AI is the conversational layer of the platform, but it remains connected to CareerPilot's structured career context.
+
+It can use:
+
+the selected resume,
+
+semantic resume retrieval,
+
+persisted Skill Gap context,
+
+conversation history,
+
+intent routing,
+
+and specialized project guidance.
+
+Resume-Grounded Project Check
+
+Career AI can evaluate a project in the context of what is already present in the user's resume.
+
+<img src="./docs/screenshots/career-ai-project-check.png" alt="CareerPilot AI Project Check" width="100%">
+
+Personalized Project Guidance
+
+<img src="./docs/screenshots/careerpilot-ai-project-guidance.png" alt="CareerPilot AI Project Guidance" width="100%">
+
+Project Coach
+
+Project Coach turns a recommended skill into a structured implementation path.
+
+<img src="./docs/screenshots/careerpilot-ai-project-coach.png" alt="CareerPilot AI Project Coach" width="100%">
+
+Completion Guidance
+
+The workflow continues beyond project ideation and helps the user close the implementation loop.
+
+<img src="./docs/screenshots/careerpilot-project-coach-completion.png" alt="CareerPilot Project Coach Completion" width="100%">
+
+README Guidance
+
+Completed implementation can be translated into clear technical documentation.
+
+<img src="./docs/screenshots/careerpilot-project-readme-guidance.png" alt="CareerPilot Project README Guidance" width="100%">
+
+Resume Bullet Grounding
+
+CareerPilot can turn completed project work into resume-ready bullets grounded in actual implementation evidence.
+
+<img src="./docs/screenshots/careerpilot-resume-bullets-grounding.png" alt="CareerPilot Resume Bullet Grounding" width="100%">
+
+Project Interview Preparation
+
+The same project context can then be converted into interview preparation around architecture, implementation decisions, trade-offs, and outcomes.
+
+<img src="./docs/screenshots/careerpilot-project-interview-preparation.png" alt="CareerPilot Project Interview Preparation" width="100%">
+
+This creates a complete evidence loop:
+
+Identify gap → Build project → Document project → Update resume → Prepare project explanation
+
+🎤 9. Mock Interview Workspace
+
+Mock Interview turns passive preparation into an interactive practice workflow.
+
+Interview Setup
+
+<img src="./docs/screenshots/mock-interview-initial.PNG" alt="CareerPilot Mock Interview Initial View" width="100%">
+
+Interview Question
+
+CareerPilot presents targeted questions one at a time.
+
+<img src="./docs/screenshots/mock-interview-question.png" alt="CareerPilot Mock Interview Question" width="100%">
+
+Answer Evaluation
+
+<img src="./docs/screenshots/mock-interview-evaluating.png" alt="CareerPilot Mock Interview Evaluating" width="100%">
+
+Actionable Feedback
+
+<img src="./docs/screenshots/mock-interview-feedback.png" alt="CareerPilot Mock Interview Feedback" width="100%">
+
+The evaluation flow also supports technical-topic feedback.
+
+<img src="./docs/screenshots/mock-interview-feedback-react.png" alt="CareerPilot React Interview Feedback" width="100%">
+
+Interview Summary
+
+At session completion, CareerPilot consolidates performance into a readiness-oriented summary.
+
+<img src="./docs/screenshots/mock-interview-summary.png" alt="CareerPilot Mock Interview Summary" width="100%">
+
+🕘 10. Analysis History
+
+CareerPilot treats generated analysis as persistent career data rather than disposable chat output.
+
+Saved Analysis Timeline
+
+<img src="./docs/screenshots/history-saved-analysis.png" alt="CareerPilot Saved Analysis History" width="100%">
+
+Job Match Detail
+
+Users can reopen a previously generated Job Match result without rerunning it.
+
+<img src="./docs/screenshots/history-job-match-detail.png" alt="CareerPilot Job Match History Detail" width="100%">
+
+Skill Gap & Career Plan History
+
+<img src="./docs/screenshots/history-skill-gap-career-plan.png" alt="CareerPilot Skill Gap and Career Plan History" width="100%">
+
+Skill Gap Detail
+
+<img src="./docs/screenshots/history-skill-gap-detail.png" alt="CareerPilot Skill Gap History Detail" width="100%">
+
+Career Plan Detail
+
+<img src="./docs/screenshots/history-career-plan.png" alt="CareerPilot Career Plan History Detail" width="100%">
+
+All historical analyses remain scoped to the authenticated user.
+
+📥 11. Saved Analysis PDF Export
+
+CareerPilot can convert a saved analysis into a portable PDF for offline review and preparation tracking.
+
+<img src="./docs/screenshots/saved-analysis-pdf-export.png" alt="CareerPilot Saved Analysis PDF Export" width="100%">
+
+This closes the workflow by turning persistent career intelligence into a downloadable artifact.
+
+📁 Project Structure
 
 CareerPilot-AI/
-│
 ├── backend/
-│ ├── alembic/
-│ │ └── versions/
-│ │
-│ ├── app/
-│ │ ├── auth/
-│ │ ├── models/
-│ │ ├── schemas/
-│ │ ├── services/
-│ │ │
-│ │ ├── agent_tools.py
-│ │ ├── analysis_history_routes.py
-│ │ ├── auth_routes.py
-│ │ ├── database.py
-│ │ ├── graph.py
-│ │ ├── main.py
-│ │ ├── mock_interview_routes.py
-│ │ ├── resume_rag.py
-│ │ ├── resume_routes.py
-│ │ ├── router_graph.py
-│ │ └── tool_agent_graph.py
-│ │
-│ ├── tests/
-│ │ ├── manual_gemini_check.py
-│ │ ├── manual_langchain_gemini_check.py
-│ │ ├── test_analysis_service.py
-│ │ ├── test_database.py
-│ │ ├── test_graph.py
-│ │ ├── test_mysql_checkpointer.py
-│ │ ├── test_resume_rag.py
-│ │ ├── test_router_graph.py
-│ │ └── test_tool_agent.py
-│ │
-│ ├── .env.example
-│ ├── alembic.ini
-│ └── requirements.txt
+│   ├── app/
+│   │   ├── auth/
+│   │   │   ├── dependencies.py
+│   │   │   └── security.py
+│   │   ├── models/
+│   │   ├── schemas/
+│   │   ├── analysis_service.py
+│   │   ├── career_graph.py
+│   │   ├── database.py
+│   │   ├── main.py
+│   │   ├── resume_rag.py
+│   │   ├── resume_routes.py
+│   │   └── router_graph.py
+│   ├── tests/
+│   ├── chroma_db/
+│   └── requirements.txt
 │
 ├── frontend/
-│ ├── public/
-│ ├── src/
-│ │ ├── components/
-│ │ ├── pages/
-│ │ ├── services/
-│ │ ├── utils/
-│ │ ├── App.jsx
-│ │ ├── index.css
-│ │ └── main.jsx
-│ │
-│ ├── .env.example
-│ ├── package.json
-│ └── vite.config.js
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   │   ├── CareerAI.jsx
+│   │   │   ├── CareerPlan.jsx
+│   │   │   ├── Dashboard.jsx
+│   │   │   ├── History.jsx
+│   │   │   ├── HistoryDetail.jsx
+│   │   │   ├── JobMatch.jsx
+│   │   │   ├── Login.jsx
+│   │   │   ├── MockInterview.jsx
+│   │   │   ├── Register.jsx
+│   │   │   ├── Resume.jsx
+│   │   │   └── SkillGap.jsx
+│   │   ├── api.js
+│   │   └── App.jsx
+│   └── package.json
 │
 ├── docs/
-├── .gitignore
-├── pyrefly.toml
+│   └── screenshots/
+│
 └── README.md
 
-⚙️ Local Development Setup
+The tree above highlights the major application modules. Generated build artifacts, local virtual environments, caches, and secrets are intentionally omitted.
+
+🔌 API Overview
+
+CareerPilot exposes authenticated FastAPI endpoints for the major application workflows.
+
+Area
+
+Purpose
+
+Authentication
+
+Register, login, current-user identity
+
+Resume
+
+Upload, process, index, and manage resume context
+
+Career Chat
+
+LangGraph-routed conversational career guidance
+
+Job Match
+
+Resume-to-role analysis
+
+Skill Gap
+
+Priority gap and learning analysis
+
+Career Plan
+
+Structured preparation roadmap
+
+Mock Interview
+
+Session creation, questions, evaluation, summaries
+
+History
+
+Retrieve persisted career analyses
+
+FastAPI also provides interactive API documentation during local development.
+
+🔐 Security & User Isolation
+
+CareerPilot's personalized data model requires user-level isolation across resumes, conversations, and analyses.
+
+Implemented safeguards include:
+
+password hashing,
+
+JWT access tokens,
+
+authenticated FastAPI dependencies,
+
+protected React routes,
+
+user ownership validation,
+
+user-scoped resume access,
+
+user-scoped conversation access,
+
+user-scoped persisted analyses,
+
+environment-based secret configuration.
+
+Environment safety
+
+Secrets such as the Gemini API key, database credentials, and JWT secret should remain in local environment files and must not be committed to Git.
+
+⚙️ Local Development
 
 Prerequisites
 
-Make sure the following are installed:
+Install:
 
 Python 3.12+
 
@@ -387,68 +813,27 @@ MySQL
 
 Git
 
-Google Gemini API key
+1. Clone the repository
 
-1️⃣ Clone the Repository
-
-git clone https://github.com/SreenithiRamesh/CareerPilot-AI.git
+git clone <your-repository-url>
 cd CareerPilot-AI
 
-2️⃣ Backend Setup
+2. Backend setup
 
 cd backend
-
-Create a virtual environment:
-
-python -m venv .venv
-
-Activate it.
-
-Linux / WSL
-
-source .venv/bin/activate
-
-Windows PowerShell
-
-.venv\Scripts\Activate.ps1
-
-Install dependencies:
-
+python -m venv .venv-linux
+source .venv-linux/bin/activate
 pip install -r requirements.txt
 
-3️⃣ Configure Backend Environment
+Create backend/.env with the required local configuration:
 
-Copy the environment template:
-
-cp .env.example .env
-
-Configure the required values in .env.
-
-Example:
-
-GEMINI_API_KEY=your_gemini_api_key_here
-
-DATABASE_URL=mysql+pymysql://careerpilot:your_password@127.0.0.1:3306/careerpilot_ai
-
-JWT_SECRET_KEY=replace_with_a_long_random_secret
+GEMINI_API_KEY=your_gemini_api_key
+DATABASE_URL=mysql+pymysql://username:password@localhost/careerpilot
+JWT_SECRET_KEY=replace_with_a_strong_secret
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
 
-LANGGRAPH_DATABASE_URL=mysql://careerpilot:your_password@127.0.0.1:3306/careerpilot_ai
-
-Never commit the real .env file or production credentials to source control.
-
-4️⃣ Run Database Migrations
-
-From the backend directory:
-
-alembic upgrade head
-
-Verify the current migration:
-
-alembic current
-
-5️⃣ Start the FastAPI Backend
+Start the API:
 
 uvicorn app.main:app --reload
 
@@ -456,546 +841,201 @@ Backend:
 
 http://127.0.0.1:8000
 
-FastAPI API documentation:
-
-http://127.0.0.1:8000/docs
-
-Health endpoint:
-
-http://127.0.0.1:8000/health
-
-Expected response:
-
-{
-"status": "ok",
-"message": "CareerPilot AI backend is running"
-}
-
-6️⃣ Frontend Setup
+3. Frontend setup
 
 Open another terminal:
 
 cd frontend
 npm install
+npm run dev
 
-Create the frontend environment file:
+The Vite development server will print the local frontend URL.
 
-cp .env.example .env
-
-Development configuration:
+4. Optional frontend environment variable
 
 VITE_API_BASE_URL=http://127.0.0.1:8000
 
-Start Vite:
+🧪 Testing & Quality Gates
 
-npm run dev
+Backend
 
-Open the local URL displayed by Vite in your browser.
+Run:
 
-🧪 Testing & Quality Checks
-
-Backend Tests
-
-From backend/:
-
+cd backend
+source .venv-linux/bin/activate
 python -m pytest -q
 
-Current validated test suite:
+Validated local test result:
 
 10 passed
 
-Frontend Lint
+Backend import check
 
-From frontend/:
+python -c "from app.main import app; print('Backend import OK')"
 
+Frontend lint
+
+cd frontend
 npm run lint
 
-Production Build
+Production build
 
 npm run build
 
-The current frontend passes ESLint and generates a successful Vite production build.
+The project has been validated with:
 
-🔒 Security Practices
+successful FastAPI import,
 
-CareerPilot currently applies several application-security practices:
+passing backend tests,
 
-JWT-based authentication
+clean frontend lint,
 
-password hashing
-
-protected frontend routes
-
-authenticated backend endpoints
-
-user-scoped database queries
-
-environment-based secret configuration
-
-.env exclusion from Git
-
-tracked .env.example templates
-
-separation of user data and vector metadata
-
-server-side ownership validation
-
-Sensitive credentials must never be stored directly in source code.
-
-📸 Product Preview
-
-🏠 CareerPilot AI — Home
-
-CareerPilot introduces the complete career-readiness workflow through a clean, focused interface designed for students and fresh graduates.
-
-<div align="center">
-  <img
-    src="docs/screenshots/home-hero.png"
-    alt="CareerPilot AI Home Page"
-    width="100%"
-  />
-</div>
-
-<br />
-
-🔄 From Resume to Career Roadmap
-
-CareerPilot transforms one resume through four focused stages — Parse, Match, Diagnose, and Plan — turning raw profile information into actionable career guidance.
-
-<div align="center">
-  <img
-    src="docs/screenshots/home-workflow.png"
-    alt="CareerPilot AI Four Stage Career Analysis Workflow"
-    width="100%"
-  />
-</div>
-
-<br />
-
-🎯 Explainable Career Insights
-
-Instead of returning only a match score, CareerPilot separates strong matches, partial matches, and priority skill gaps so users can understand why they received a particular result.
-
-<div align="center">
-  <img
-    src="docs/screenshots/home-career-insights.png"
-    alt="CareerPilot AI Explainable Career Insights"
-    width="100%"
-  />
-</div>
-
-<br />
-
-💡 Product Guidance
-
-Built-in guidance explains how Career AI, Job Match, Skill Gap Analysis, Career Readiness Reports, and Mock Interviews work together.
-
-<div align="center">
-  <img
-    src="docs/screenshots/home-faq.png"
-    alt="CareerPilot AI Product FAQ"
-    width="100%"
-  />
-</div>
-
-<br />
-
-🚀 Start Your Career Analysis
-
-CareerPilot provides a clear path from resume upload to personalized career preparation.
-
-<div align="center">
-  <img
-    src="docs/screenshots/home-cta.png"
-    alt="CareerPilot AI Career Analysis Call to Action"
-    width="100%"
-  />
-</div>
-
-🔐 Authentication
-
-CareerPilot includes secure user authentication with protected application routes and session-based access to career features.
-
-📝 User Registration
-
-New users can create an account through the registration flow before accessing the CareerPilot workspace.
-
-<div align="center">
-  <img
-    src="docs/screenshots/register.png"
-    alt="CareerPilot AI Registration Page"
-    width="100%"
-  />
-</div>
-
-<br />
-
-🔑 User Login
-
-Registered users can securely sign in and access protected pages such as Dashboard, Resume, Career AI, Job Match, Skill Gap, Career Plan, History, and Mock Interview.
-
-<div align="center">
-  <img
-    src="docs/screenshots/login.png"
-    alt="CareerPilot AI Login Page"
-    width="100%"
-  />
-</div>
-
-✅ Authentication Flow Validated
-
-User registration
-
-Form validation
-
-Secure password handling
-
-Login authentication
-
-JWT-based access
-
-Protected route access
-
-Session persistence
-
-Logout flow
-
-📊 Career Dashboard
-
-CareerPilot provides a centralized career workspace where users can track their progress across the complete career-preparation workflow.
-
-The dashboard connects Resume Analysis, Job Match, Skill Gap Analysis, Career Planning, Mock Interviews, Career AI, and historical reports through a unified interface.
-
-Career Preparation Workflow
-
-<div align="center">
-  <img
-    src="docs/screenshots/dashboard1.png"
-    alt="CareerPilot AI Career Dashboard and Workflow"
-    width="100%"
-  />
-</div>
-
-<br />
-
-Career Readiness & Analysis Tracking
-
-<div align="center">
-  <img
-    src="docs/screenshots/dashboard2.png"
-    alt="CareerPilot AI Career Readiness Dashboard"
-    width="100%"
-  />
-</div>
-
-Dashboard Capabilities
-
-Resume-driven career preparation workflow
-
-Career readiness progress tracking
-
-Job Match, Skill Gap, and Career Plan status
-
-Context-aware next-best-step recommendations
-
-Latest career analysis overview
-
-Direct access to Career AI
-
-Integrated Mock Interview and History modules
-
-Authenticated user workspace
-
-📄 Resume Workspace
-
-CareerPilot uses the user's selected resume as the evidence base for personalized career analysis.
-
-Users can upload a PDF resume, which is prepared for downstream workflows including Job Match, Skill Gap Analysis, Career Planning, Career AI, and interview preparation.
-
-Resume Upload
-
-<div align="center">
-  <img
-    src="docs/screenshots/before_resume_upload.png"
-    alt="CareerPilot AI Resume Upload Workspace"
-    width="100%"
-  />
-</div>
-
-<br />
-
-Resume Successfully Prepared
-
-<div align="center">
-  <img
-    src="docs/screenshots/after_resume_upload.png"
-    alt="CareerPilot AI Successful Resume Upload"
-    width="100%"
-  />
-</div>
-
-Resume Pipeline
-
-PDF resume selection and upload
-
-File type and size handling
-
-Resume text extraction
-
-Resume chunking for semantic retrieval
-
-Gemini embedding generation
-
-Chroma vector indexing
-
-Resume-grounded career analysis
-
-Active resume available across CareerPilot workflows
-
-🎯 Job Match Workspace
-
-CareerPilot compares the active resume against a target job description and produces an explainable assessment rather than a standalone similarity score.
-
-The workflow identifies strong matches, partially demonstrated requirements, missing skills, resume improvements, and priority actions. Results are persisted so users can return to previous analyses through History.
-
-Job Description Input
-
-The user supplies the target role description that CareerPilot uses as the requirements baseline for resume comparison.
-
-Match Analysis
-
-The Job Match result summarizes resume-to-role alignment with an explainable match score and supporting evidence rather than returning only a generic recommendation.
-
-📊 Skill Gap Workspace
-
-Skill Gap Analysis converts the resume-to-role comparison into a prioritized development strategy.
-
-Instead of treating every missing keyword equally, CareerPilot organizes gaps by priority and produces a recommended learning order, practice tasks, proof-of-skill actions, and portfolio project prompts. This makes the output useful as an execution plan rather than only an AI-generated checklist.
-
-Skill Gap Entry Point
-
-The workspace starts from the active resume and previously analyzed role context, reducing repeated input across the product workflow.
-
-Skill Gap Analysis
-
-CareerPilot separates existing skills, partially demonstrated capabilities, missing requirements, and priority gaps so the user can focus on the highest-impact learning areas.
-
-Build Evidence
-
-Missing skills are converted into portfolio-oriented proof-of-skill recommendations, helping users demonstrate capability through practical work rather than relying only on course completion.
-
-Action Plan
-
-The final Skill Gap view converts the analysis into a practical learning sequence and concrete next actions.
-
-🗺️ Career Plan Workspace
-
-Career Plan turns resume evidence, target-role requirements, and analysis context into a practical career-readiness roadmap.
-
-The generated plan can include top priorities, learning order, hands-on tasks, portfolio evidence, interview preparation focus, and a structured 30-day action plan.
-
-Career Plan Entry Point
-
-The Career Plan workspace reuses the active resume and role-analysis context to generate a focused preparation roadmap.
-
-Readiness Analysis
-
-The generated plan identifies the highest-value preparation priorities and translates them into structured learning and execution guidance.
-
-30-Day Roadmap
-
-CareerPilot turns the analysis into a time-bounded roadmap that a fresher can execute without unnecessarily relearning already demonstrated skills.
-
-🤖 Career AI Workspace
-
-Career AI provides conversational guidance while remaining grounded in the user's selected resume.
-
-The assistant can retrieve relevant resume evidence, reuse persisted skill-gap context, maintain conversation threads, route requests to specialized workflows, and provide project, learning, interview, and career guidance without forcing users to repeatedly restate their existing skills.
-
-Resume-Grounded Project Check
-
-Career AI can reason over the selected resume and provide contextual feedback on projects and career-readiness evidence.
-
-Project Guidance
-
-The assistant can convert a career objective into practical implementation guidance while keeping recommendations aligned with the user's existing background.
-
-Project Coach
-
-Project Coach provides structured, execution-oriented guidance for turning a recommended skill into portfolio evidence.
-
-Completion Guidance
-
-CareerPilot can continue the project workflow through completion-oriented recommendations rather than ending at project ideation.
-
-README Guidance
-
-The assistant also helps translate implementation work into clear project documentation suitable for a technical portfolio.
-
-Resume Bullet Grounding
-
-Career AI can help convert completed technical work into resume-ready evidence grounded in what was actually built.
-
-Project Interview Preparation
-
-Completed project work can be transformed into interview-preparation material so users can explain architecture, decisions, trade-offs, and outcomes.
-
-🎤 Mock Interview Workspace
-
-Mock Interview extends the career-analysis workflow into active interview preparation.
-
-Sessions can use resume context and role information to generate targeted questions, evaluate answers, provide feedback, and produce a final readiness summary. Interview sessions are persisted so practice is not limited to a single browser interaction.
-
-Interview Setup
-
-The Mock Interview workspace initializes a targeted interview session using the user's preparation context.
-
-Interview Question
-
-CareerPilot presents one question at a time so the session behaves like an interactive interview rather than a static question bank.
-
-Answer Evaluation
-
-Submitted answers move through an evaluation state before feedback is returned.
-
-Feedback
-
-The system provides actionable feedback on the submitted answer and can tailor evaluation to technical topics such as React.
-
-Interview Summary
-
-At the end of the session, CareerPilot consolidates performance into a readiness-oriented summary.
-
-🕘 Analysis History
-
-CareerPilot persists generated career analyses and exposes them through a dedicated History workspace.
-
-Users can revisit previous Job Match, Skill Gap, and Career Plan outputs instead of rerunning the same workflow every time. Historical records remain scoped to the authenticated user.
-
-Saved Analysis Timeline
-
-The History workspace gives users a persistent view of completed analyses across CareerPilot workflows.
-
-Job Match Detail
-
-Users can reopen a saved Job Match result without rerunning the analysis.
-
-Skill Gap and Career Plan History
-
-Related Skill Gap and Career Plan records remain available as part of the user's career-intelligence history.
-
-Skill Gap Detail
-
-Persisted Skill Gap evidence can be reopened in a dedicated historical-analysis view.
-
-Career Plan Detail
-
-Career Plan results are also persisted so the user can return to previous preparation roadmaps.
-
-📥 Career Readiness Report
-
-CareerPilot can consolidate analysis output into a downloadable PDF career-readiness report, providing an offline snapshot of the user's current preparation state.
-
-The report can bring together Job Match findings, Skill Gap priorities, Career Plan actions, and interview-preparation guidance in a portable format.
-
-Saved Analysis PDF Export
-
-Historical analysis can be exported as a PDF, providing a portable artifact for offline review and preparation tracking.
+successful Vite production build.
 
 🧩 Engineering Highlights
 
-CareerPilot demonstrates an end-to-end AI application architecture rather than a collection of disconnected prompts.
+1. Resume-grounded RAG
 
-Resume-grounded RAG: PDF content is chunked, embedded with Gemini, persisted in ChromaDB, and retrieved semantically for downstream AI workflows.
+CareerPilot retrieves relevant resume chunks before generating context-sensitive guidance instead of depending only on generic LLM knowledge.
 
-Resume-level vector identity: indexed resume collections are associated with resume IDs so the same selected resume can support multiple conversation threads.
+2. Resume-level vector identity
 
-Structured AI workflows: LangGraph routes requests across career guidance, resume analysis, job matching, skill-gap analysis, career planning, and project guidance.
+Vector collections are tied to resume identity so a selected resume can support multiple Career AI threads and analysis workflows.
 
-Persistent career intelligence: MySQL stores user accounts, resume metadata, job descriptions, Job Match results, Skill Gap reports, Career Plans, and interview sessions.
+3. Specialized LangGraph routing
 
-Cross-session context reuse: Career AI can combine the active resume with persisted analysis context rather than depending only on the current chat turn.
+Different user intents are routed to dedicated workflows rather than forcing Job Match, Skill Gap, Career Plan, project coaching, and general guidance through one prompt.
 
-User isolation: authenticated resources and analyses are scoped to their owning user.
+4. Persistent career intelligence
 
-Explainable outputs: Job Match and Skill Gap workflows return structured evidence and recommended actions instead of opaque AI responses.
+Job descriptions, analyses, career plans, interview sessions, and conversation metadata are stored as application state instead of disappearing after one model response.
 
-Quality gates: backend tests, frontend linting, and production builds are part of the validation workflow.
+5. Cross-session context reuse
 
-🚧 Engineering Roadmap
+Career AI can reuse the selected resume and persisted Skill Gap context in a fresh conversation, reducing repetitive user input.
 
-CareerPilot's application-level MVP is implemented. The next milestones focus on infrastructure and production deployment.
+6. Evidence-oriented skill development
 
-🐳 Containerization
+Skill Gap does not stop at identifying missing technologies. It recommends practice tasks, proof-of-skill actions, and portfolio projects that can create demonstrable evidence.
 
-Backend Dockerfile
+7. Full project evidence loop
 
-MySQL container
+Project Coach connects implementation guidance with completion, README documentation, resume bullets, and interview preparation.
 
-Docker Compose
+8. Authenticated user isolation
 
-Environment-based container configuration
+Resume access, conversations, and historical analyses are associated with the authenticated user.
 
-Persistent Chroma volume
+9. Structured, explainable outputs
 
-Container networking
+Core analysis workflows return organized fields such as strong matches, missing skills, priority gaps, learning order, and action plans instead of opaque free-form responses.
 
-Database migrations during deployment
+10. Engineering quality gates
 
-☁️ AWS Deployment
+Backend tests, frontend linting, and production builds are used as regression checks before feature completion.
 
-React production build on Amazon S3
+🛣️ Roadmap
 
-CloudFront distribution
+Completed MVP
 
-FastAPI deployment on Amazon EC2
+React frontend
 
-Nginx reverse proxy
+FastAPI backend
 
-HTTPS configuration
+JWT authentication
 
-Private S3 resume storage
+PDF resume processing
 
-IAM configuration
+Gemini embeddings
 
-CloudWatch logging and monitoring
+ChromaDB resume RAG
 
-🔄 CI/CD
+Resume-grounded Career AI
 
-GitHub Actions
+Job Match analysis
 
-Automated backend validation
+Skill Gap analysis
 
-Automated frontend lint/build
+Build Evidence recommendations
 
-Deployment workflow
+Career Plan generation
 
-Production secrets management
+Project Coach workflow
 
-🎯 Project Goals
+Mock Interview workflow
 
-CareerPilot AI is being developed around four engineering objectives:
+Persistent analysis history
 
-Personalization — career guidance should be grounded in the user's actual profile.
+PDF export
 
-Actionability — AI output should translate into concrete next steps.
+Backend tests
 
-Persistence — analyses, interview sessions, and career progress should survive beyond a single prompt.
+Frontend lint and production build
 
-Production readiness — the application should evolve from a local AI prototype into a deployable full-stack system.
+Next Engineering Milestones
+
+Dockerize frontend and backend
+
+Add Docker Compose for local orchestration
+
+Add CI/CD with GitHub Actions
+
+Deploy backend to AWS EC2
+
+Host frontend with Amazon S3 + CloudFront
+
+Move production MySQL to Amazon RDS
+
+Store original resume PDFs in Amazon S3
+
+Add production monitoring and observability
+
+Expand automated integration tests
+
+💡 What This Project Demonstrates
+
+CareerPilot AI brings together several software-engineering concerns in one application:
+
+full-stack product development,
+
+REST API design,
+
+authentication and authorization,
+
+relational persistence,
+
+vector search,
+
+RAG,
+
+LLM integration,
+
+LangGraph workflow orchestration,
+
+structured AI outputs,
+
+stateful user workflows,
+
+AI-assisted career analysis,
+
+automated testing,
+
+and production-oriented architecture planning.
+
+The project is intentionally built as an end-to-end applied AI system, not only as a chatbot interface.
 
 👩‍💻 Author
 
 Sreenithi Ramesh
-
-Computer Science & Engineering Graduate | Software Engineering • Cloud • Applied AI
+Computer Science & Engineering Graduate — 2026
+Software Engineering · Full-Stack Development · Cloud · Applied AI
 
 <div align="center">
 
-⭐ CareerPilot AI
+CareerPilot AI
 
-From resume to roadmap — one career intelligence platform.
+Turn your resume into a practical career strategy.
 
-Built with React, FastAPI, LangChain, LangGraph and Google Gemini.
+Resume Intelligence · Job Match · Skill Gap · Career Plan · Career AI · Mock Interview
 
 </div>
