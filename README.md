@@ -646,6 +646,47 @@ CareerPilot provides a clear path from resume upload to personalized career prep
 
 Once screenshots are added, this section can become a visual product walkthrough.
 
+## 🔐 Authentication
+
+CareerPilot includes secure user authentication with protected application routes and session-based access to career features.
+
+### 📝 User Registration
+
+New users can create an account through the registration flow before accessing the CareerPilot workspace.
+
+<div align="center">
+  <img
+    src="docs/screenshots/register.png"
+    alt="CareerPilot AI Registration Page"
+    width="100%"
+  />
+</div>
+
+<br />
+
+### 🔑 User Login
+
+Registered users can securely sign in and access protected pages such as Dashboard, Resume, Career AI, Job Match, Skill Gap, Career Plan, History, and Mock Interview.
+
+<div align="center">
+  <img
+    src="docs/screenshots/login.png"
+    alt="CareerPilot AI Login Page"
+    width="100%"
+  />
+</div>
+
+### ✅ Authentication Flow Validated
+
+- User registration
+- Form validation
+- Secure password handling
+- Login authentication
+- JWT-based access
+- Protected route access
+- Session persistence
+- Logout flow
+
 ---
 
 ## 🚧 Engineering Roadmap
