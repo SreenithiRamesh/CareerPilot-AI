@@ -724,6 +724,45 @@ The dashboard connects Resume Analysis, Job Match, Skill Gap Analysis, Career Pl
 - Direct access to Career AI
 - Integrated Mock Interview and History modules
 - Authenticated user workspace
+
+  ## 📄 Resume Workspace
+
+CareerPilot uses the user's selected resume as the evidence base for personalized career analysis.
+
+Users can upload a PDF resume, which is prepared for downstream workflows including Job Match, Skill Gap Analysis, Career Planning, Career AI, and interview preparation.
+
+### Resume Upload
+
+<div align="center">
+  <img
+    src="docs/screenshots/before_resume_upload.png"
+    alt="CareerPilot AI Resume Upload Workspace"
+    width="100%"
+  />
+</div>
+
+<br />
+
+### Resume Successfully Prepared
+
+<div align="center">
+  <img
+    src="docs/screenshots/after_resume_upload.png"
+    alt="CareerPilot AI Successful Resume Upload"
+    width="100%"
+  />
+</div>
+
+### Resume Pipeline
+
+- PDF resume selection and upload
+- File type and size handling
+- Resume text extraction
+- Resume chunking for semantic retrieval
+- Gemini embedding generation
+- Chroma vector indexing
+- Resume-grounded career analysis
+- Active resume available across CareerPilot workflows
 ---
 
 ## 🚧 Engineering Roadmap
