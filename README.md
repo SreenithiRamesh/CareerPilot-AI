@@ -2,10 +2,9 @@
 
 # CareerPilot AI
 
-### AI-Powered Career Intelligence Platform for Students & Fresh Graduates
+### Agentic AI Career Intelligence Platform for Students & Fresh Graduates
 
-Turn one resume into a complete career-preparation workflow — job matching, skill-gap analysis, career planning, project guidance, mock interviews, history, and exportable reports.
-
+**Transform your resume into actionable career intelligence through resume-aware RAG, structured career analysis, and an autonomous LangGraph agent that plans, executes tools, evaluates results, and replans when required.**
 <br/>
 
 <img src="https://skillicons.dev/icons?i=react,vite,tailwind,js,python,fastapi,mysql,git,github,vscode" alt="CareerPilot AI Tech Stack" />
