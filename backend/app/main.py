@@ -1,9 +1,13 @@
 
+import json
+import logging
 import os
 
 from fastapi import (
     Depends,
     FastAPI,
+    HTTPException,
+    status,
 )
 from fastapi.middleware.cors import (
     CORSMiddleware,
@@ -52,9 +56,13 @@ from app.router_graph import (
     career_router_graph,
 )
 from app.services.conversation_service import (
+    get_conversation_message_by_request,
     get_or_create_owned_conversation,
     save_conversation_message,
 )
+
+
+logger = logging.getLogger(__name__)
 
 # ============================================================
 # PERSISTED SKILL GAP CONTEXT
@@ -328,6 +336,11 @@ class ChatRequest(
 ):
     message: str
 
+    request_id: str = Field(
+        min_length=1,
+        max_length=64,
+    )
+
     resume_id: int | None = None
 
     thread_id: str = "default"
@@ -431,15 +444,82 @@ def chat(
     )
 
 
+    normalized_request_id = (
+        request.request_id.strip()
+    )
+
     save_conversation_message(
         db,
-        conversation=
-            conversation,
-        role=
-            "user",
-        content=
-            request.message,
+        conversation=conversation,
+        role="user",
+        content=request.message,
+        request_id=normalized_request_id,
     )
+
+    cached_assistant_message = (
+        get_conversation_message_by_request(
+            db,
+            conversation=conversation,
+            request_id=normalized_request_id,
+            role="assistant",
+        )
+    )
+
+    if cached_assistant_message is not None:
+        if not cached_assistant_message.response_payload:
+            logger.error(
+                "Assistant message %s has no cached "
+                "response payload.",
+                cached_assistant_message.id,
+            )
+
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_500_INTERNAL_SERVER_ERROR
+                ),
+                detail=(
+                    "The cached CareerPilot response "
+                    "is unavailable."
+                ),
+            )
+
+        try:
+            cached_response = json.loads(
+                cached_assistant_message.response_payload
+            )
+
+        except (
+            json.JSONDecodeError,
+            TypeError,
+        ) as exc:
+            logger.exception(
+                "Could not decode cached chat response "
+                "for request %s.",
+                normalized_request_id,
+            )
+
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_500_INTERNAL_SERVER_ERROR
+                ),
+                detail=(
+                    "The cached CareerPilot response "
+                    "is invalid."
+                ),
+            ) from exc
+
+        if not isinstance(cached_response, dict):
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_500_INTERNAL_SERVER_ERROR
+                ),
+                detail=(
+                    "The cached CareerPilot response "
+                    "has an invalid format."
+                ),
+            )
+
+        return cached_response
 
 
     # --------------------------------------------------------
@@ -606,13 +686,29 @@ def chat(
     # 7. Execute LangGraph workflow
     # --------------------------------------------------------
 
-    result = (
-        career_router_graph.invoke(
+    try:
+        result = career_router_graph.invoke(
             graph_input,
-            config=
-                config,
+            config=config,
         )
-    )
+
+    except Exception as exc:
+        logger.exception(
+            "CareerPilot graph execution failed "
+            "for request %s.",
+            normalized_request_id,
+        )
+
+        raise HTTPException(
+            status_code=(
+                status.HTTP_503_SERVICE_UNAVAILABLE
+            ),
+            detail=(
+                "CareerPilot could not complete this "
+                "request. Please retry using the same "
+                "request ID."
+            ),
+        ) from exc
 
 
     # --------------------------------------------------------
@@ -655,24 +751,82 @@ def chat(
 
 
     if not assistant_content:
-        assistant_content = (
-            "CareerPilot could not generate "
-            "a response for this request."
+        logger.error(
+            "CareerPilot returned an empty response "
+            "for request %s.",
+            normalized_request_id,
+        )
+
+        raise HTTPException(
+            status_code=(
+                status.HTTP_503_SERVICE_UNAVAILABLE
+            ),
+            detail=(
+                "CareerPilot returned an empty "
+                "response. Please retry using the "
+                "same request ID."
+            ),
         )
 
 
-    save_conversation_message(
-        db,
-        conversation=
-            conversation,
-        role=
-            "assistant",
-        content=
-            assistant_content,
-    )
-
-
     response = assistant_content
+
+
+    def persist_chat_response(
+        api_response: dict,
+    ) -> dict:
+        completed_response = {
+            **api_response,
+            "request_id": normalized_request_id,
+        }
+
+        serialized_response = json.dumps(
+            completed_response,
+            ensure_ascii=False,
+            default=str,
+        )
+
+        saved_assistant_message = (
+            save_conversation_message(
+                db,
+                conversation=conversation,
+                role="assistant",
+                content=assistant_content,
+                request_id=normalized_request_id,
+                response_payload=serialized_response,
+            )
+        )
+
+        if saved_assistant_message.response_payload:
+            try:
+                persisted_response = json.loads(
+                    saved_assistant_message.response_payload
+                )
+
+            except (
+                json.JSONDecodeError,
+                TypeError,
+            ) as exc:
+                logger.exception(
+                    "Could not decode persisted chat "
+                    "response for request %s.",
+                    normalized_request_id,
+                )
+
+                raise HTTPException(
+                    status_code=(
+                        status.HTTP_500_INTERNAL_SERVER_ERROR
+                    ),
+                    detail=(
+                        "CareerPilot saved an invalid "
+                        "response payload."
+                    ),
+                ) from exc
+
+            if isinstance(persisted_response, dict):
+                return persisted_response
+
+        return completed_response
 
 
     structured_intents = {
@@ -762,7 +916,9 @@ def chat(
                 ]
 
 
-            return api_response
+            return persist_chat_response(
+                api_response
+            )
 
 
         except (
@@ -772,29 +928,23 @@ def chat(
             # Graceful fallback if an expected
             # structured response cannot be decoded.
 
-            return {
-                "intent":
-                    intent,
-
-                "response":
-                    response,
-
-                "thread_id":
-                    request.thread_id,
-            }
+            return persist_chat_response(
+                {
+                    "intent": intent,
+                    "response": response,
+                    "thread_id": request.thread_id,
+                }
+            )
 
 
     # --------------------------------------------------------
     # 9. Normal conversational response
     # --------------------------------------------------------
 
-    return {
-        "intent":
-            intent,
-
-        "response":
-            response,
-
-        "thread_id":
-            request.thread_id,
-    }
+    return persist_chat_response(
+        {
+            "intent": intent,
+            "response": response,
+            "thread_id": request.thread_id,
+        }
+    )
