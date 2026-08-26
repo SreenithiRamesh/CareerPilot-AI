@@ -1,7 +1,15 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    String,
+)
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
+)
 
 from app.database import Base
 
@@ -20,6 +28,15 @@ class Conversation(Base):
             ondelete="CASCADE",
         ),
         nullable=False,
+        index=True,
+    )
+
+    resume_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "resumes.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
         index=True,
     )
 
@@ -46,4 +63,17 @@ class Conversation(Base):
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
         nullable=False,
+        index=True,
+    )
+
+    messages = relationship(
+        "Message",
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="Message.created_at",
+    )
+
+    resume = relationship(
+        "Resume",
     )

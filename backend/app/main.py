@@ -1,4 +1,4 @@
-import json
+
 import os
 
 from fastapi import (
@@ -8,7 +8,9 @@ from fastapi import (
 from fastapi.middleware.cors import (
     CORSMiddleware,
 )
-
+from app.conversation_routes import (
+    router as conversation_router,
+)
 from langchain_core.messages import (
     HumanMessage,
 )
@@ -51,8 +53,8 @@ from app.router_graph import (
 )
 from app.services.conversation_service import (
     get_or_create_owned_conversation,
+    save_conversation_message,
 )
-
 
 # ============================================================
 # PERSISTED SKILL GAP CONTEXT
@@ -278,7 +280,9 @@ app.include_router(
     auth_router
 )
 
-
+app.include_router(
+    conversation_router
+)
 app.include_router(
     resume_router
 )
@@ -413,13 +417,28 @@ def chat(
     # the conversation service rejects access.
     # --------------------------------------------------------
 
-    get_or_create_owned_conversation(
-        db=
-            db,
-        user_id=
-            current_user.id,
-        thread_id=
-            request.thread_id,
+    conversation = (
+        get_or_create_owned_conversation(
+            db=
+                db,
+            user_id=
+                current_user.id,
+            thread_id=
+                request.thread_id,
+            resume_id=
+                request.resume_id,
+        )
+    )
+
+
+    save_conversation_message(
+        db,
+        conversation=
+            conversation,
+        role=
+            "user",
+        content=
+            request.message,
     )
 
 
@@ -615,6 +634,45 @@ def chat(
     response = result[
         "response"
     ]
+
+
+    if isinstance(
+        response,
+        str,
+    ):
+        assistant_content = (
+            response.strip()
+        )
+
+    else:
+        assistant_content = (
+            json.dumps(
+                response,
+                ensure_ascii=False,
+                default=str,
+            )
+        )
+
+
+    if not assistant_content:
+        assistant_content = (
+            "CareerPilot could not generate "
+            "a response for this request."
+        )
+
+
+    save_conversation_message(
+        db,
+        conversation=
+            conversation,
+        role=
+            "assistant",
+        content=
+            assistant_content,
+    )
+
+
+    response = assistant_content
 
 
     structured_intents = {
