@@ -17,6 +17,10 @@ from app.models import (
 )
 
 
+from app.time_utils import (
+    utc_now_naive,
+)
+
 ALLOWED_MESSAGE_ROLES = {
     "user",
     "assistant",
@@ -162,7 +166,7 @@ def get_or_create_owned_conversation(
             if conversation.resume_id is None:
                 conversation.resume_id = resume_id
                 conversation.updated_at = (
-                    datetime.utcnow()
+                    utc_now_naive()
                 )
 
                 try:
@@ -326,7 +330,7 @@ def save_conversation_message(
         )
 
     conversation.updated_at = (
-        datetime.utcnow()
+        utc_now_naive()
     )
 
     try:
@@ -374,7 +378,7 @@ def rename_owned_conversation(
     )
 
     conversation.updated_at = (
-        datetime.utcnow()
+        utc_now_naive()
     )
 
     try:

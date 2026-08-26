@@ -6,6 +6,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
 
+from app.time_utils import (
+    utc_now_naive,
+)
+
 class Resume(Base):
     __tablename__ = "resumes"
 
@@ -46,6 +50,6 @@ class Resume(Base):
 
     upload_timestamp: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=utc_now_naive,
         nullable=False,
     )

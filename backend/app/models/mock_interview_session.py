@@ -16,6 +16,10 @@ from sqlalchemy.orm import (
 from app.database import Base
 
 
+from app.time_utils import (
+    utc_now_naive,
+)
+
 class MockInterviewSession(Base):
     __tablename__ = "mock_interview_sessions"
 
@@ -171,7 +175,7 @@ class MockInterviewSession(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=utc_now_naive,
         nullable=False,
     )
 
