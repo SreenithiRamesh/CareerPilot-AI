@@ -30,18 +30,6 @@ import {
 import api from "../services/api";
 
 
-const CHAT_STORAGE_KEY =
-  "careerpilot_ai_chats";
-
-const ACTIVE_CHAT_STORAGE_KEY =
-  "careerpilot_active_chat_id";
-
-const THREAD_STORAGE_KEY =
-  "careerpilot_thread_id";
-
-const MAX_SAVED_CHATS = 20;
-
-
 const PROMPT_SUGGESTIONS = [
   "How should I prepare for Java fresher interviews?",
   "What should I learn next for backend roles?",
@@ -75,13 +63,6 @@ function createThreadId() {
 }
 
 
-function createChatId() {
-  return createUniqueId(
-    "career-chat"
-  );
-}
-
-
 function createEmptyChat(
   threadId = createThreadId()
 ) {
@@ -89,73 +70,65 @@ function createEmptyChat(
     new Date().toISOString();
 
   return {
-    id: createChatId(),
+    id: threadId,
     title: "New conversation",
     threadId,
+    resumeId: null,
     messages: [],
     createdAt: now,
     updatedAt: now,
+    persisted: false,
   };
 }
 
 
-function getConversationTitle(
-  messages
+function mapConversationSummary(
+  conversation
 ) {
-  const firstUserMessage =
-    messages.find(
-      (item) =>
-        item?.role === "user" &&
-        typeof item?.content === "string" &&
-        item.content.trim()
-    );
-
-  if (!firstUserMessage) {
-    return "New conversation";
-  }
-
-  const cleaned =
-    firstUserMessage.content
-      .replace(/\s+/g, " ")
-      .trim();
-
-  if (cleaned.length <= 44) {
-    return cleaned;
-  }
-
-  return `${cleaned.slice(0, 44).trim()}…`;
+  return {
+    id: conversation.thread_id,
+    threadId:
+      conversation.thread_id,
+    title:
+      conversation.title ||
+      "New conversation",
+    resumeId:
+      conversation.resume_id ??
+      null,
+    messages: [],
+    createdAt:
+      conversation.created_at,
+    updatedAt:
+      conversation.updated_at,
+    persisted: true,
+  };
 }
 
 
-function readSavedChats() {
-  const stored =
-    localStorage.getItem(
-      CHAT_STORAGE_KEY
-    );
-
-  if (!stored) {
-    return [];
-  }
-
-  try {
-    const parsed =
-      JSON.parse(stored);
-
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed.filter(
-      (chat) =>
-        chat &&
-        typeof chat === "object" &&
-        chat.id &&
-        chat.threadId &&
-        Array.isArray(chat.messages)
-    );
-  } catch {
-    return [];
-  }
+function mapConversationDetail(
+  conversation
+) {
+  return {
+    ...mapConversationSummary(
+      conversation
+    ),
+    messages: Array.isArray(
+      conversation.messages
+    )
+      ? conversation.messages.map(
+          (item) => ({
+            id: item.id,
+            role: item.role,
+            content:
+              parseAssistantContent(
+                item.content
+              ),
+            createdAt:
+              item.created_at,
+          })
+        )
+      : [],
+  };
 }
 
 
@@ -315,10 +288,10 @@ function CareerAI() {
     useState("");
 
   const [
-    storageReady,
-    setStorageReady,
+    conversationLoading,
+    setConversationLoading,
   ] =
-    useState(false);
+    useState(true);
 
   const [
     saveNotice,
@@ -346,171 +319,131 @@ function CareerAI() {
 
 
   /* ==================================================
-     CHAT HISTORY INITIALIZATION
+     BACKEND CONVERSATION INITIALIZATION
      ================================================== */
 
   useEffect(() => {
-    const storedChats =
-      readSavedChats();
+    let cancelled = false;
 
-    const storedActiveId =
-      localStorage.getItem(
-        ACTIVE_CHAT_STORAGE_KEY
-      );
-
-    if (
-      storedChats.length > 0
-    ) {
-      const selectedChat =
-        storedChats.find(
-          (chat) =>
-            chat.id ===
-            storedActiveId
-        ) ||
-        storedChats[0];
-// eslint-disable-next-line react-hooks/set-state-in-effect
-      setChatHistory(
-        storedChats
-      );
-
-      setActiveChatId(
-        selectedChat.id
-      );
-
-      setMessages(
-        selectedChat.messages
-      );
-
-      localStorage.setItem(
-        THREAD_STORAGE_KEY,
-        selectedChat.threadId
-      );
-
-      setStorageReady(
-        true
-      );
-
-      return;
-    }
-
-    const activeResume =
-      getActiveResume();
-
-    const initialChat =
-      createEmptyChat(
-        activeResume?.thread_id ||
-        createThreadId()
-      );
-
-    setChatHistory([
-      initialChat,
-    ]);
-
-    setActiveChatId(
-      initialChat.id
-    );
-
-    setMessages([]);
-
-    localStorage.setItem(
-      ACTIVE_CHAT_STORAGE_KEY,
-      initialChat.id
-    );
-
-    localStorage.setItem(
-      THREAD_STORAGE_KEY,
-      initialChat.threadId
-    );
-
-    setStorageReady(
-      true
-    );
-  }, []);
-
-
-  /* ==================================================
-     AUTO-SAVE ACTIVE CHAT
-     ================================================== */
-
-  useEffect(() => {
-    if (
-      !storageReady ||
-      !activeChatId
-    ) {
-      return;
-    }
-// eslint-disable-next-line react-hooks/set-state-in-effect
-    setChatHistory(
-      (previous) => {
-        const now =
-          new Date().toISOString();
-
-        const updated =
-          previous.map(
-            (chat) =>
-              chat.id ===
-              activeChatId
-                ? {
-                    ...chat,
-                    title:
-                      getConversationTitle(
-                        messages
-                      ),
-                    messages,
-                    updatedAt: now,
-                  }
-                : chat
+    async function initializeConversations() {
+      try {
+        const response =
+          await api.get(
+            "/api/conversations"
           );
 
-        return updated
-          .sort(
-            (a, b) =>
-              new Date(
-                b.updatedAt
-              ).getTime() -
-              new Date(
-                a.updatedAt
-              ).getTime()
+        const conversations =
+          Array.isArray(
+            response.data
+              ?.conversations
           )
-          .slice(
-            0,
-            MAX_SAVED_CHATS
+            ? response.data
+                .conversations
+            : [];
+
+        if (cancelled) {
+          return;
+        }
+
+        if (
+          conversations.length === 0
+        ) {
+          const draft =
+            createEmptyChat();
+
+          setChatHistory([
+            draft,
+          ]);
+          setActiveChatId(
+            draft.id
           );
+          setMessages([]);
+          return;
+        }
+
+        const summaries =
+          conversations.map(
+            mapConversationSummary
+          );
+
+        const firstThreadId =
+          summaries[0].threadId;
+
+        setChatHistory(
+          summaries
+        );
+        setActiveChatId(
+          firstThreadId
+        );
+
+        const detailResponse =
+          await api.get(
+            `/api/conversations/${encodeURIComponent(
+              firstThreadId
+            )}`
+          );
+
+        if (cancelled) {
+          return;
+        }
+
+        const detail =
+          mapConversationDetail(
+            detailResponse.data
+          );
+
+        setMessages(
+          detail.messages
+        );
+        setChatHistory(
+          (previous) =>
+            previous.map(
+              (chat) =>
+                chat.id ===
+                detail.id
+                  ? detail
+                  : chat
+            )
+        );
+      } catch (initializationError) {
+        console.error(
+          "Career AI conversations could not be loaded:",
+          initializationError
+        );
+
+        if (!cancelled) {
+          const draft =
+            createEmptyChat();
+
+          setChatHistory([
+            draft,
+          ]);
+          setActiveChatId(
+            draft.id
+          );
+          setMessages([]);
+          setError(
+            initializationError
+              .response?.data
+              ?.detail ||
+              "Your saved conversations could not be loaded."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setConversationLoading(
+            false
+          );
+        }
       }
-    );
-  }, [
-    messages,
-    activeChatId,
-    storageReady,
-  ]);
-
-
-  /* ==================================================
-     PERSIST CHAT HISTORY
-     ================================================== */
-
-  useEffect(() => {
-    if (!storageReady) {
-      return;
     }
 
-    try {
-      localStorage.setItem(
-        CHAT_STORAGE_KEY,
-        JSON.stringify(
-          chatHistory
-        )
-      );
-    } catch (storageError) {
-      console.error(
-        "Career AI chat history could not be saved:",
-        storageError
-      );
-    }
-  }, [
-    chatHistory,
-    storageReady,
-  ]);
+    void initializeConversations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
 
   /* ==================================================
@@ -710,42 +643,27 @@ Start with Stage 1 only.
     if (
       activeChat?.threadId
     ) {
-      localStorage.setItem(
-        THREAD_STORAGE_KEY,
-        activeChat.threadId
-      );
-
       return activeChat.threadId;
-    }
-
-    const existing =
-      localStorage.getItem(
-        THREAD_STORAGE_KEY
-      );
-
-    if (existing) {
-      return existing;
-    }
-
-    const activeResume =
-      getActiveResume();
-
-    if (
-      activeResume?.thread_id
-    ) {
-      localStorage.setItem(
-        THREAD_STORAGE_KEY,
-        activeResume.thread_id
-      );
-
-      return activeResume.thread_id;
     }
 
     const generated =
       createThreadId();
 
-    localStorage.setItem(
-      THREAD_STORAGE_KEY,
+    const draft =
+      createEmptyChat(
+        generated
+      );
+
+    setChatHistory(
+      (previous) => [
+        draft,
+        ...previous.filter(
+          (chat) =>
+            chat.persisted
+        ),
+      ]
+    );
+    setActiveChatId(
       generated
     );
 
@@ -754,23 +672,25 @@ Start with Stage 1 only.
 
 
   function handleNewConversation() {
-    if (loading) {
+    if (
+      loading ||
+      agentLoading ||
+      conversationLoading
+    ) {
       return;
     }
 
     const newChat =
       createEmptyChat();
 
-    const updatedChats = [
-      newChat,
-      ...chatHistory,
-    ].slice(
-      0,
-      MAX_SAVED_CHATS
-    );
-
     setChatHistory(
-      updatedChats
+      (previous) => [
+        newChat,
+        ...previous.filter(
+          (chat) =>
+            chat.persisted
+        ),
+      ]
     );
 
     setActiveChatId(
@@ -781,38 +701,17 @@ Start with Stage 1 only.
     setMessage("");
     setError("");
     setSearchQuery("");
-
-    localStorage.setItem(
-      ACTIVE_CHAT_STORAGE_KEY,
-      newChat.id
-    );
-
-    localStorage.setItem(
-      THREAD_STORAGE_KEY,
-      newChat.threadId
-    );
-
-    try {
-      localStorage.setItem(
-        CHAT_STORAGE_KEY,
-        JSON.stringify(
-          updatedChats
-        )
-      );
-    } catch (storageError) {
-      console.error(
-        "Career AI chat history could not be saved:",
-        storageError
-      );
-    }
+    setAgentResult(null);
   }
 
 
-  function handleOpenConversation(
+  async function handleOpenConversation(
     chatId
   ) {
     if (
       loading ||
+      agentLoading ||
+      conversationLoading ||
       chatId === activeChatId
     ) {
       return;
@@ -828,143 +727,289 @@ Start with Stage 1 only.
       return;
     }
 
-    setActiveChatId(
-      selectedChat.id
-    );
-
-    setMessages(
-      selectedChat.messages
-    );
-
-    setMessage("");
-    setError("");
-
-    localStorage.setItem(
-      ACTIVE_CHAT_STORAGE_KEY,
-      selectedChat.id
-    );
-
-    localStorage.setItem(
-      THREAD_STORAGE_KEY,
-      selectedChat.threadId
-    );
-  }
-
-
-  function handleSaveChat() {
-    if (!activeChatId) {
+    if (!selectedChat.persisted) {
+      setActiveChatId(
+        selectedChat.id
+      );
+      setMessages([]);
+      setMessage("");
+      setError("");
+      setAgentResult(null);
       return;
     }
 
-    const now =
-      new Date().toISOString();
-
-    const updatedChats =
-      chatHistory.map(
-        (chat) =>
-          chat.id ===
-          activeChatId
-            ? {
-                ...chat,
-                title:
-                  getConversationTitle(
-                    messages
-                  ),
-                messages,
-                updatedAt: now,
-              }
-            : chat
-      );
-
-    setChatHistory(
-      updatedChats
-    );
+    setConversationLoading(true);
+    setError("");
 
     try {
-      localStorage.setItem(
-        CHAT_STORAGE_KEY,
-        JSON.stringify(
-          updatedChats
-        )
-      );
+      const response =
+        await api.get(
+          `/api/conversations/${encodeURIComponent(
+            selectedChat.threadId
+          )}`
+        );
 
-      setSaveNotice(
-        "Saved"
+      const detail =
+        mapConversationDetail(
+          response.data
+        );
+
+      setChatHistory(
+        (previous) =>
+          previous.map(
+            (chat) =>
+              chat.id === detail.id
+                ? detail
+                : chat
+          )
       );
-    } catch (storageError) {
+      setActiveChatId(
+        detail.id
+      );
+      setMessages(
+        detail.messages
+      );
+      setMessage("");
+      setAgentResult(null);
+    } catch (openError) {
       console.error(
-        "Career AI chat could not be saved:",
-        storageError
+        "Career AI conversation could not be opened:",
+        openError
+      );
+      setError(
+        openError.response?.data
+          ?.detail ||
+          "This conversation could not be opened."
+      );
+    } finally {
+      setConversationLoading(false);
+    }
+  }
+
+
+  async function refreshConversationHistory(
+    activeThreadId
+  ) {
+    const response =
+      await api.get(
+        "/api/conversations"
       );
 
-      setError(
-        "This conversation could not be saved in your browser."
+    const conversations =
+      Array.isArray(
+        response.data?.conversations
+      )
+        ? response.data
+            .conversations
+        : [];
+
+    setChatHistory(
+      conversations.map(
+        mapConversationSummary
+      )
+    );
+
+    if (activeThreadId) {
+      setActiveChatId(
+        activeThreadId
       );
     }
   }
 
 
-  function handleClearChat() {
+  async function handleSaveChat() {
+    const activeChat =
+      chatHistory.find(
+        (chat) =>
+          chat.id ===
+          activeChatId
+      );
+
+    if (!activeChat) {
+      return;
+    }
+
+    if (!activeChat.persisted) {
+      setSaveNotice(
+        "Send a message first"
+      );
+      return;
+    }
+
+    const requestedTitle =
+      window.prompt(
+        "Rename this conversation:",
+        activeChat.title ||
+          "New conversation"
+      );
+
+    if (requestedTitle === null) {
+      return;
+    }
+
+    const title =
+      requestedTitle.trim();
+
+    if (!title) {
+      setError(
+        "Conversation title cannot be empty."
+      );
+      return;
+    }
+
+    try {
+      const response =
+        await api.patch(
+          `/api/conversations/${encodeURIComponent(
+            activeChat.threadId
+          )}`,
+          { title }
+        );
+
+      const updated =
+        mapConversationSummary(
+          response.data
+        );
+
+      setChatHistory(
+        (previous) =>
+          previous.map(
+            (chat) =>
+              chat.id === updated.id
+                ? {
+                    ...chat,
+                    ...updated,
+                    messages:
+                      chat.messages,
+                  }
+                : chat
+          )
+      );
+      setError("");
+      setSaveNotice("Renamed");
+    } catch (renameError) {
+      console.error(
+        "Career AI conversation could not be renamed:",
+        renameError
+      );
+      setError(
+        renameError.response?.data
+          ?.detail ||
+          "This conversation could not be renamed."
+      );
+    }
+  }
+
+
+  async function handleClearChat() {
     if (
       loading ||
+      agentLoading ||
+      conversationLoading ||
       !activeChatId
     ) {
       return;
     }
 
-    const freshThreadId =
-      createThreadId();
-
-    const now =
-      new Date().toISOString();
-
-    const updatedChats =
-      chatHistory.map(
+    const activeChat =
+      chatHistory.find(
         (chat) =>
           chat.id ===
           activeChatId
-            ? {
-                ...chat,
-                title:
-                  "New conversation",
-                threadId:
-                  freshThreadId,
-                messages: [],
-                updatedAt: now,
-              }
-            : chat
       );
 
-    setChatHistory(
-      updatedChats
-    );
-
-    setMessages([]);
-    setMessage("");
-    setError("");
-
-    localStorage.setItem(
-      THREAD_STORAGE_KEY,
-      freshThreadId
-    );
-
-    try {
-      localStorage.setItem(
-        CHAT_STORAGE_KEY,
-        JSON.stringify(
-          updatedChats
-        )
-      );
-    } catch (storageError) {
-      console.error(
-        "Career AI cleared chat could not be saved:",
-        storageError
-      );
+    if (!activeChat) {
+      return;
     }
 
-    setSaveNotice(
-      "Cleared"
-    );
+    if (
+      activeChat.persisted &&
+      !window.confirm(
+        "Delete this conversation and all of its messages?"
+      )
+    ) {
+      return;
+    }
+
+    setConversationLoading(true);
+
+    try {
+      if (activeChat.persisted) {
+        await api.delete(
+          `/api/conversations/${encodeURIComponent(
+            activeChat.threadId
+          )}`
+        );
+      }
+
+      const remaining =
+        chatHistory.filter(
+          (chat) =>
+            chat.id !==
+              activeChat.id &&
+            chat.persisted
+        );
+
+      if (remaining.length > 0) {
+        const nextChat =
+          remaining[0];
+
+        const response =
+          await api.get(
+            `/api/conversations/${encodeURIComponent(
+              nextChat.threadId
+            )}`
+          );
+
+        const detail =
+          mapConversationDetail(
+            response.data
+          );
+
+        setChatHistory(
+          remaining.map(
+            (chat) =>
+              chat.id === detail.id
+                ? detail
+                : chat
+          )
+        );
+        setActiveChatId(
+          detail.id
+        );
+        setMessages(
+          detail.messages
+        );
+      } else {
+        const draft =
+          createEmptyChat();
+
+        setChatHistory([
+          draft,
+        ]);
+        setActiveChatId(
+          draft.id
+        );
+        setMessages([]);
+      }
+
+      setMessage("");
+      setError("");
+      setAgentResult(null);
+      setSaveNotice("Deleted");
+    } catch (deleteError) {
+      console.error(
+        "Career AI conversation could not be deleted:",
+        deleteError
+      );
+      setError(
+        deleteError.response?.data
+          ?.detail ||
+          "This conversation could not be deleted."
+      );
+    } finally {
+      setConversationLoading(false);
+    }
   }
 
 
@@ -986,14 +1031,22 @@ Start with Stage 1 only.
 
     if (
       !trimmedMessage ||
-      loading
+      loading ||
+      agentLoading ||
+      conversationLoading
     ) {
       return;
     }
 
     setError("");
 
+    const temporaryMessageId =
+      createUniqueId(
+        "pending-message"
+      );
+
     const userMessage = {
+      id: temporaryMessageId,
       role: "user",
       content: trimmedMessage,
     };
@@ -1009,19 +1062,33 @@ Start with Stage 1 only.
     setLoading(true);
 
     try {
+      const threadId =
+        getThreadId();
+
+      const activeChat =
+        chatHistory.find(
+          (chat) =>
+            chat.id ===
+            activeChatId
+        );
+
       const activeResume =
         getActiveResume();
+
+      const resumeId =
+        activeChat?.resumeId ??
+        activeResume?.resume_id ??
+        null;
 
       const response =
         await api.post(
           "/api/chat",
           {
             thread_id:
-              getThreadId(),
+              threadId,
 
             resume_id:
-              activeResume?.resume_id ??
-              null,
+              resumeId,
 
             message:
               trimmedMessage,
@@ -1069,6 +1136,17 @@ Start with Stage 1 only.
           },
         ]
       );
+
+      try {
+        await refreshConversationHistory(
+          threadId
+        );
+      } catch (refreshError) {
+        console.error(
+          "Career AI conversation list could not be refreshed:",
+          refreshError
+        );
+      }
     } catch (err) {
       console.error(
         "Career AI request failed:",
@@ -1079,6 +1157,15 @@ Start with Stage 1 only.
         err.response?.data?.detail ||
         err.message ||
         "CareerPilot could not respond right now."
+      );
+
+      setMessages(
+        (previous) =>
+          previous.filter(
+            (item) =>
+              item.id !==
+              temporaryMessageId
+          )
       );
     } finally {
       setLoading(false);
@@ -1105,7 +1192,8 @@ Start with Stage 1 only.
     if (
       !trimmedGoal ||
       loading ||
-      agentLoading
+      agentLoading ||
+      conversationLoading
     ) {
       return;
     }
@@ -1118,7 +1206,15 @@ Start with Stage 1 only.
       const activeResume =
         getActiveResume();
 
+      const activeChat =
+        chatHistory.find(
+          (chat) =>
+            chat.id ===
+            activeChatId
+        );
+
       const resumeId =
+        activeChat?.resumeId ??
         activeResume?.resume_id;
 
       if (!resumeId) {
@@ -1199,7 +1295,8 @@ Start with Stage 1 only.
 
       if (
         !loading &&
-        !agentLoading
+        !agentLoading &&
+        !conversationLoading
       ) {
         handleCareerSubmit();
       }
@@ -1502,7 +1599,11 @@ Do not add technologies or features that were not actually implemented.
               onClick={
                 handleNewConversation
               }
-              disabled={loading}
+              disabled={
+                loading ||
+                agentLoading ||
+                conversationLoading
+              }
               className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Plus size={17} />
@@ -1553,7 +1654,15 @@ Do not add technologies or features that were not actually implemented.
 
             <div className="mt-3 max-h-[430px] space-y-1 overflow-y-auto pr-1">
 
-              {filteredChats.length >
+              {conversationLoading ? (
+                <div className="flex items-center justify-center gap-2 rounded-xl border border-border-soft bg-white p-4 text-xs text-text-muted">
+                  <LoaderCircle
+                    size={15}
+                    className="animate-spin text-brand"
+                  />
+                  Loading conversations...
+                </div>
+              ) : filteredChats.length >
               0 ? (
                 filteredChats.map(
                   (chat) => {
@@ -1734,13 +1843,16 @@ Do not add technologies or features that were not actually implemented.
                   handleSaveChat
                 }
                 disabled={
-                  !activeChatId
+                  !activeChatId ||
+                  loading ||
+                  agentLoading ||
+                  conversationLoading
                 }
                 className="inline-flex h-9 items-center gap-2 rounded-lg border border-border-soft bg-white px-3 text-xs font-semibold text-midnight transition hover:border-emerald-200 hover:bg-emerald-50/40 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Save size={15} />
 
-                Save chat
+                Rename chat
               </button>
 
               <button
@@ -1750,13 +1862,14 @@ Do not add technologies or features that were not actually implemented.
                 }
                 disabled={
                   loading ||
-                  messages.length === 0
+                  agentLoading ||
+                  conversationLoading
                 }
                 className="inline-flex h-9 items-center gap-2 rounded-lg border border-border-soft bg-white px-3 text-xs font-semibold text-midnight transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Trash2 size={15} />
 
-                Clear chat
+                Delete chat
               </button>
 
             </div>
@@ -1769,7 +1882,17 @@ Do not add technologies or features that were not actually implemented.
           <div className="flex-1 overflow-y-auto bg-app-bg/40 p-5 sm:p-6">
 
 
-            {careerMode === "agent" ? (
+            {conversationLoading ? (
+
+              <div className="flex min-h-[430px] items-center justify-center gap-3 text-sm text-text-muted">
+                <LoaderCircle
+                  size={20}
+                  className="animate-spin text-brand"
+                />
+                Loading conversation...
+              </div>
+
+            ) : careerMode === "agent" ? (
 
               <AgentWorkspace
                 result={agentResult}
@@ -1909,6 +2032,9 @@ Do not add technologies or features that were not actually implemented.
 
               <textarea
                 value={message}
+                disabled={
+                  conversationLoading
+                }
                 onChange={(event) =>
                   setMessage(
                     event.target.value
@@ -1940,6 +2066,7 @@ Do not add technologies or features that were not actually implemented.
                   disabled={
                     loading ||
                     agentLoading ||
+                    conversationLoading ||
                     !message.trim()
                   }
                   className="ml-auto flex h-10 items-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
