@@ -15,6 +15,10 @@ from sqlalchemy.orm import (
 from app.database import Base
 
 
+from app.time_utils import (
+    utc_now_naive,
+)
+
 class AgentRun(Base):
     __tablename__ = "agent_runs"
 
@@ -72,7 +76,7 @@ class AgentRun(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=utc_now_naive,
         nullable=False,
     )
 

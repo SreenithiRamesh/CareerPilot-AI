@@ -19,6 +19,10 @@ from app.services.mock_interview_service import (
 )
 
 
+from app.time_utils import (
+    utc_now_naive,
+)
+
 # ==================================================
 # JSON HELPERS
 # ==================================================
@@ -859,7 +863,7 @@ def process_interview_answer(
         )
 
         session.completed_at = (
-            datetime.utcnow()
+            utc_now_naive()
         )
 
         # Keep index pointing at final question.

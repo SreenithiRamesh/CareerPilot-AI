@@ -14,6 +14,10 @@ from sqlalchemy.orm import (
 from app.database import Base
 
 
+from app.time_utils import (
+    utc_now_naive,
+)
+
 class Conversation(Base):
     __tablename__ = "conversations"
 
@@ -54,14 +58,14 @@ class Conversation(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        default=utc_now_naive,
         nullable=False,
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=utc_now_naive,
+        onupdate=utc_now_naive,
         nullable=False,
         index=True,
     )
