@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from fastapi import (
     HTTPException,
     status,
@@ -8,6 +6,7 @@ from sqlalchemy import (
     exists,
     select,
 )
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -15,11 +14,10 @@ from app.models import (
     Message,
     Resume,
 )
-
-
 from app.time_utils import (
     utc_now_naive,
 )
+
 
 ALLOWED_MESSAGE_ROLES = {
     "user",
@@ -38,6 +36,49 @@ def _normalize_message_content(
                 status.HTTP_422_UNPROCESSABLE_ENTITY
             ),
             detail="Message content cannot be empty.",
+        )
+
+    return cleaned
+
+
+def _normalize_request_id(
+    request_id: str,
+) -> str:
+    cleaned = request_id.strip()
+
+    if not cleaned:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_422_UNPROCESSABLE_ENTITY
+            ),
+            detail="Request ID cannot be empty.",
+        )
+
+    if len(cleaned) > 64:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_422_UNPROCESSABLE_ENTITY
+            ),
+            detail=(
+                "Request ID cannot exceed "
+                "64 characters."
+            ),
+        )
+
+    return cleaned
+
+
+def _normalize_message_role(
+    role: str,
+) -> str:
+    cleaned = role.strip().lower()
+
+    if cleaned not in ALLOWED_MESSAGE_ROLES:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_422_UNPROCESSABLE_ENTITY
+            ),
+            detail="Unsupported message role.",
         )
 
     return cleaned
@@ -177,10 +218,7 @@ def get_or_create_owned_conversation(
                     db.rollback()
                     raise
 
-            elif (
-                conversation.resume_id
-                != resume_id
-            ):
+            elif conversation.resume_id != resume_id:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
@@ -225,9 +263,7 @@ def list_owned_conversations(
     user_id: int,
 ) -> list[Conversation]:
     has_messages = exists(
-        select(
-            Message.id
-        ).where(
+        select(Message.id).where(
             Message.conversation_id
             == Conversation.id
         )
@@ -236,8 +272,7 @@ def list_owned_conversations(
     conversations = db.scalars(
         select(Conversation)
         .where(
-            Conversation.user_id
-            == user_id,
+            Conversation.user_id == user_id,
             has_messages,
         )
         .order_by(
@@ -246,9 +281,8 @@ def list_owned_conversations(
         )
     ).all()
 
-    return list(
-        conversations
-    )
+    return list(conversations)
+
 
 def list_conversation_messages(
     db: Session,
@@ -283,38 +317,88 @@ def list_conversation_messages(
     )
 
 
+def get_conversation_message_by_request(
+    db: Session,
+    *,
+    conversation: Conversation,
+    request_id: str,
+    role: str,
+) -> Message | None:
+    normalized_request_id = (
+        _normalize_request_id(request_id)
+    )
+    normalized_role = (
+        _normalize_message_role(role)
+    )
+
+    return db.scalar(
+        select(Message).where(
+            Message.conversation_id
+            == conversation.id,
+            Message.request_id
+            == normalized_request_id,
+            Message.role
+            == normalized_role,
+        )
+    )
+
+
 def save_conversation_message(
     db: Session,
     *,
     conversation: Conversation,
     role: str,
     content: str,
+    request_id: str | None = None,
+    response_payload: str | None = None,
 ) -> Message:
     normalized_role = (
-        role.strip().lower()
+        _normalize_message_role(role)
     )
-
-    if (
-        normalized_role
-        not in ALLOWED_MESSAGE_ROLES
-    ):
-        raise HTTPException(
-            status_code=(
-                status.HTTP_422_UNPROCESSABLE_ENTITY
-            ),
-            detail="Unsupported message role.",
-        )
-
     normalized_content = (
-        _normalize_message_content(
-            content
-        )
+        _normalize_message_content(content)
     )
+
+    normalized_request_id: str | None = None
+
+    if request_id is not None:
+        normalized_request_id = (
+            _normalize_request_id(request_id)
+        )
+
+        existing_message = (
+            get_conversation_message_by_request(
+                db,
+                conversation=conversation,
+                request_id=normalized_request_id,
+                role=normalized_role,
+            )
+        )
+
+        if existing_message is not None:
+            if (
+                existing_message.content
+                != normalized_content
+            ):
+                raise HTTPException(
+                    status_code=(
+                        status.HTTP_409_CONFLICT
+                    ),
+                    detail=(
+                        "This request ID is already "
+                        "associated with different "
+                        "message content."
+                    ),
+                )
+
+            return existing_message
 
     message = Message(
         conversation_id=conversation.id,
+        request_id=normalized_request_id,
         role=normalized_role,
         content=normalized_content,
+        response_payload=response_payload,
     )
 
     db.add(message)
@@ -329,14 +413,45 @@ def save_conversation_message(
             )
         )
 
-    conversation.updated_at = (
-        utc_now_naive()
-    )
+    conversation.updated_at = utc_now_naive()
 
     try:
         db.commit()
         db.refresh(message)
         db.refresh(conversation)
+
+    except IntegrityError:
+        db.rollback()
+
+        if normalized_request_id is None:
+            raise
+
+        existing_message = (
+            get_conversation_message_by_request(
+                db,
+                conversation=conversation,
+                request_id=normalized_request_id,
+                role=normalized_role,
+            )
+        )
+
+        if existing_message is None:
+            raise
+
+        if (
+            existing_message.content
+            != normalized_content
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "This request ID is already "
+                    "associated with different "
+                    "message content."
+                ),
+            )
+
+        return existing_message
 
     except Exception:
         db.rollback()
@@ -373,13 +488,8 @@ def rename_owned_conversation(
             ),
         )
 
-    conversation.title = (
-        normalized_title[:255]
-    )
-
-    conversation.updated_at = (
-        utc_now_naive()
-    )
+    conversation.title = normalized_title[:255]
+    conversation.updated_at = utc_now_naive()
 
     try:
         db.commit()
