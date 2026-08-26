@@ -35,39 +35,31 @@ function Resume() {
     useState("");
 
 
+  /* ==================================================
+     RESUME THREAD
+     ================================================== */
+
   /*
-   * CareerPilot currently requires thread_id
-   * for resume retrieval.
+   * Every new resume upload receives a fresh
+   * conversation thread.
    *
-   * Keep this implementation detail internal.
+   * This prevents a thread created by another
+   * account/session/resume from being reused.
+   *
+   * The generated thread is intentionally NOT
+   * persisted here. It is stored only after the
+   * backend confirms that the upload succeeded.
    */
 
-  function getOrCreateThreadId() {
-    const existingThread =
-      localStorage.getItem(
-        "careerpilot_thread_id"
-      );
-
-
-    if (existingThread) {
-      return existingThread;
-    }
-
-
-    const generatedThread =
+  function createFreshResumeThreadId() {
+    return (
       typeof crypto !== "undefined" &&
-      crypto.randomUUID
+      typeof crypto.randomUUID === "function"
         ? `careerpilot-${crypto.randomUUID()}`
-        : `careerpilot-${Date.now()}`;
-
-
-    localStorage.setItem(
-      "careerpilot_thread_id",
-      generatedThread
+        : `careerpilot-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2)}`
     );
-
-
-    return generatedThread;
   }
 
 
@@ -166,8 +158,15 @@ function Resume() {
 
 
     try {
+      /*
+       * Create a completely fresh thread for this
+       * resume upload.
+       *
+       * Do not reuse careerpilot_thread_id here.
+       */
+
       const threadId =
-        getOrCreateThreadId();
+        createFreshResumeThreadId();
 
 
       const formData =
@@ -200,8 +199,33 @@ function Resume() {
 
 
       /*
-       * Read the previously active resume
-       * before replacing it.
+       * Validate the identifiers returned by the
+       * backend before changing workspace state.
+       */
+
+      if (!uploadResult?.resume_id) {
+        throw new Error(
+          "Resume upload completed without a resume ID."
+        );
+      }
+
+
+      /*
+       * The backend should normally return the same
+       * thread ID that was supplied during upload.
+       *
+       * Falling back to threadId keeps the workspace
+       * consistent if the response omits it.
+       */
+
+      const confirmedThreadId =
+        uploadResult.thread_id ||
+        threadId;
+
+
+      /*
+       * Read the previously active resume before
+       * replacing it.
        */
 
       let previousResume =
@@ -223,8 +247,8 @@ function Resume() {
 
 
       /*
-       * Detect whether CareerPilot now has
-       * a different active resume record.
+       * Detect whether CareerPilot now has a
+       * different active resume record.
        */
 
       const resumeChanged =
@@ -240,9 +264,12 @@ function Resume() {
 
 
       /*
-       * Analysis from the previous resume
-       * must not remain active after the
-       * user uploads a different resume.
+       * Analysis generated for an older resume must
+       * never remain attached to a newly uploaded
+       * resume.
+       *
+       * Clear resume-scoped analysis state whenever
+       * the resume record changes.
        */
 
       if (resumeChanged) {
@@ -263,24 +290,37 @@ function Resume() {
       /*
        * Store the newly active resume.
        *
-       * These identifiers remain internal
-       * and are reused by downstream flows.
+       * resume_id and thread_id now represent the
+       * same successful upload and are reused by
+       * Job Match, Skill Gap, Career Plan and
+       * Career AI Agent Mode.
        */
+
+      const activeResume = {
+        resume_id:
+          uploadResult.resume_id,
+
+        thread_id:
+          confirmedThreadId,
+
+        filename:
+          uploadResult.filename ||
+          file.name,
+      };
+
 
       localStorage.setItem(
         "careerpilot_active_resume",
-        JSON.stringify({
-          resume_id:
-            uploadResult.resume_id,
-
-          thread_id:
-            uploadResult.thread_id,
-
-          filename:
-            uploadResult.filename,
-        })
+        JSON.stringify(
+          activeResume
+        )
       );
 
+
+      /*
+       * Keep the compatibility resume ID key used
+       * by other CareerPilot screens.
+       */
 
       localStorage.setItem(
         "careerpilot_resume_id",
@@ -290,23 +330,42 @@ function Resume() {
       );
 
 
-      if (
-        uploadResult.thread_id
-      ) {
-        localStorage.setItem(
-          "careerpilot_thread_id",
-          uploadResult.thread_id
-        );
-      }
+      /*
+       * Replace any old conversation thread only
+       * AFTER the backend successfully accepts the
+       * current resume upload.
+       */
 
-
-      setResult(
-        uploadResult
+      localStorage.setItem(
+        "careerpilot_thread_id",
+        confirmedThreadId
       );
 
+
+      /*
+       * Use the normalized result so the UI and
+       * localStorage contain identical identifiers.
+       */
+
+      setResult({
+        ...uploadResult,
+        thread_id:
+          confirmedThreadId,
+        filename:
+          uploadResult.filename ||
+          file.name,
+      });
+
     } catch (err) {
+      console.error(
+        "CareerPilot resume upload failed:",
+        err
+      );
+
+
       setError(
         err.response?.data?.detail ||
+        err.message ||
         "CareerPilot could not upload your resume. Please try again."
       );
 

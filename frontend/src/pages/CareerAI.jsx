@@ -30,79 +30,16 @@ import {
 import api from "../services/api";
 
 
-const CHAT_STORAGE_PREFIX =
+const CHAT_STORAGE_KEY =
   "careerpilot_ai_chats";
 
-const ACTIVE_CHAT_STORAGE_PREFIX =
+const ACTIVE_CHAT_STORAGE_KEY =
   "careerpilot_active_chat_id";
 
-const THREAD_STORAGE_PREFIX =
+const THREAD_STORAGE_KEY =
   "careerpilot_thread_id";
 
 const MAX_SAVED_CHATS = 20;
-
-
-function getAuthenticatedUserId() {
-  const token =
-    localStorage.getItem(
-      "careerpilot_token"
-    );
-
-  if (!token) {
-    return "guest";
-  }
-
-  try {
-    const parts =
-      token.split(".");
-
-    if (parts.length !== 3) {
-      return "guest";
-    }
-
-    const normalizedPayload =
-      parts[1]
-        .replace(/-/g, "+")
-        .replace(/_/g, "/");
-
-    const paddedPayload =
-      normalizedPayload.padEnd(
-        Math.ceil(
-          normalizedPayload.length / 4
-        ) * 4,
-        "="
-      );
-
-    const payload =
-      JSON.parse(
-        atob(
-          paddedPayload
-        )
-      );
-
-    return String(
-      payload?.sub ||
-      "guest"
-    );
-  } catch {
-    return "guest";
-  }
-}
-
-
-function getChatStorageKey() {
-  return `${CHAT_STORAGE_PREFIX}_${getAuthenticatedUserId()}`;
-}
-
-
-function getActiveChatStorageKey() {
-  return `${ACTIVE_CHAT_STORAGE_PREFIX}_${getAuthenticatedUserId()}`;
-}
-
-
-function getThreadStorageKey() {
-  return `${THREAD_STORAGE_PREFIX}_${getAuthenticatedUserId()}`;
-}
 
 
 const PROMPT_SUGGESTIONS = [
@@ -193,7 +130,7 @@ function getConversationTitle(
 function readSavedChats() {
   const stored =
     localStorage.getItem(
-      getChatStorageKey()
+      CHAT_STORAGE_KEY
     );
 
   if (!stored) {
@@ -214,8 +151,7 @@ function readSavedChats() {
         typeof chat === "object" &&
         chat.id &&
         chat.threadId &&
-        Array.isArray(chat.messages) &&
-        chat.messages.length > 0
+        Array.isArray(chat.messages)
     );
   } catch {
     return [];
@@ -390,6 +326,24 @@ function CareerAI() {
   ] =
     useState("");
 
+  const [
+    careerMode,
+    setCareerMode,
+  ] =
+    useState("chat");
+
+  const [
+    agentResult,
+    setAgentResult,
+  ] =
+    useState(null);
+
+  const [
+    agentLoading,
+    setAgentLoading,
+  ] =
+    useState(false);
+
 
   /* ==================================================
      CHAT HISTORY INITIALIZATION
@@ -401,7 +355,7 @@ function CareerAI() {
 
     const storedActiveId =
       localStorage.getItem(
-        getActiveChatStorageKey()
+        ACTIVE_CHAT_STORAGE_KEY
       );
 
     if (
@@ -428,7 +382,7 @@ function CareerAI() {
       );
 
       localStorage.setItem(
-        getThreadStorageKey(),
+        THREAD_STORAGE_KEY,
         selectedChat.threadId
       );
 
@@ -459,12 +413,12 @@ function CareerAI() {
     setMessages([]);
 
     localStorage.setItem(
-      getActiveChatStorageKey(),
+      ACTIVE_CHAT_STORAGE_KEY,
       initialChat.id
     );
 
     localStorage.setItem(
-      getThreadStorageKey(),
+      THREAD_STORAGE_KEY,
       initialChat.threadId
     );
 
@@ -541,19 +495,10 @@ function CareerAI() {
     }
 
     try {
-      const persistedChats =
-        chatHistory.filter(
-          (chat) =>
-            Array.isArray(
-              chat.messages
-            ) &&
-            chat.messages.length > 0
-        );
-
       localStorage.setItem(
-        getChatStorageKey(),
+        CHAT_STORAGE_KEY,
         JSON.stringify(
-          persistedChats
+          chatHistory
         )
       );
     } catch (storageError) {
@@ -766,7 +711,7 @@ Start with Stage 1 only.
       activeChat?.threadId
     ) {
       localStorage.setItem(
-        getThreadStorageKey(),
+        THREAD_STORAGE_KEY,
         activeChat.threadId
       );
 
@@ -775,7 +720,7 @@ Start with Stage 1 only.
 
     const existing =
       localStorage.getItem(
-        getThreadStorageKey()
+        THREAD_STORAGE_KEY
       );
 
     if (existing) {
@@ -789,7 +734,7 @@ Start with Stage 1 only.
       activeResume?.thread_id
     ) {
       localStorage.setItem(
-        getThreadStorageKey(),
+        THREAD_STORAGE_KEY,
         activeResume.thread_id
       );
 
@@ -800,7 +745,7 @@ Start with Stage 1 only.
       createThreadId();
 
     localStorage.setItem(
-      getThreadStorageKey(),
+      THREAD_STORAGE_KEY,
       generated
     );
 
@@ -816,18 +761,9 @@ Start with Stage 1 only.
     const newChat =
       createEmptyChat();
 
-    const existingSavedChats =
-      chatHistory.filter(
-        (chat) =>
-          Array.isArray(
-            chat.messages
-          ) &&
-          chat.messages.length > 0
-      );
-
     const updatedChats = [
       newChat,
-      ...existingSavedChats,
+      ...chatHistory,
     ].slice(
       0,
       MAX_SAVED_CHATS
@@ -847,16 +783,28 @@ Start with Stage 1 only.
     setSearchQuery("");
 
     localStorage.setItem(
-      getActiveChatStorageKey(),
+      ACTIVE_CHAT_STORAGE_KEY,
       newChat.id
     );
 
     localStorage.setItem(
-      getThreadStorageKey(),
+      THREAD_STORAGE_KEY,
       newChat.threadId
     );
 
-    // Blank drafts stay in memory until the user sends a message.
+    try {
+      localStorage.setItem(
+        CHAT_STORAGE_KEY,
+        JSON.stringify(
+          updatedChats
+        )
+      );
+    } catch (storageError) {
+      console.error(
+        "Career AI chat history could not be saved:",
+        storageError
+      );
+    }
   }
 
 
@@ -892,22 +840,19 @@ Start with Stage 1 only.
     setError("");
 
     localStorage.setItem(
-      getActiveChatStorageKey(),
+      ACTIVE_CHAT_STORAGE_KEY,
       selectedChat.id
     );
 
     localStorage.setItem(
-      getThreadStorageKey(),
+      THREAD_STORAGE_KEY,
       selectedChat.threadId
     );
   }
 
 
   function handleSaveChat() {
-    if (
-      !activeChatId ||
-      messages.length === 0
-    ) {
+    if (!activeChatId) {
       return;
     }
 
@@ -935,20 +880,11 @@ Start with Stage 1 only.
       updatedChats
     );
 
-    const persistedChats =
-      updatedChats.filter(
-        (chat) =>
-          Array.isArray(
-            chat.messages
-          ) &&
-          chat.messages.length > 0
-      );
-
     try {
       localStorage.setItem(
-        getChatStorageKey(),
+        CHAT_STORAGE_KEY,
         JSON.stringify(
-          persistedChats
+          updatedChats
         )
       );
 
@@ -999,15 +935,6 @@ Start with Stage 1 only.
             : chat
       );
 
-    const persistedChats =
-      updatedChats.filter(
-        (chat) =>
-          Array.isArray(
-            chat.messages
-          ) &&
-          chat.messages.length > 0
-      );
-
     setChatHistory(
       updatedChats
     );
@@ -1017,15 +944,15 @@ Start with Stage 1 only.
     setError("");
 
     localStorage.setItem(
-      getThreadStorageKey(),
+      THREAD_STORAGE_KEY,
       freshThreadId
     );
 
     try {
       localStorage.setItem(
-        getChatStorageKey(),
+        CHAT_STORAGE_KEY,
         JSON.stringify(
-          persistedChats
+          updatedChats
         )
       );
     } catch (storageError) {
@@ -1038,95 +965,6 @@ Start with Stage 1 only.
     setSaveNotice(
       "Cleared"
     );
-  }
-
-
-  function handleDeleteConversation() {
-    if (
-      loading ||
-      !activeChatId
-    ) {
-      return;
-    }
-
-    const remainingChats =
-      chatHistory.filter(
-        (chat) =>
-          chat.id !==
-          activeChatId
-      );
-
-    const persistedChats =
-      remainingChats.filter(
-        (chat) =>
-          Array.isArray(
-            chat.messages
-          ) &&
-          chat.messages.length > 0
-      );
-
-    let nextChat =
-      remainingChats[0];
-
-    let updatedChats =
-      remainingChats;
-
-    if (!nextChat) {
-      nextChat =
-        createEmptyChat();
-
-      updatedChats = [
-        nextChat,
-      ];
-    }
-
-    setChatHistory(
-      updatedChats
-    );
-
-    setActiveChatId(
-      nextChat.id
-    );
-
-    setMessages(
-      nextChat.messages || []
-    );
-
-    setMessage("");
-    setError("");
-    setSearchQuery("");
-
-    localStorage.setItem(
-      getActiveChatStorageKey(),
-      nextChat.id
-    );
-
-    localStorage.setItem(
-      getThreadStorageKey(),
-      nextChat.threadId
-    );
-
-    try {
-      localStorage.setItem(
-        getChatStorageKey(),
-        JSON.stringify(
-          persistedChats
-        )
-      );
-
-      setSaveNotice(
-        "Deleted"
-      );
-    } catch (storageError) {
-      console.error(
-        "Career AI conversation could not be deleted:",
-        storageError
-      );
-
-      setError(
-        "This conversation could not be deleted from your browser."
-      );
-    }
   }
 
 
@@ -1249,6 +1087,106 @@ Start with Stage 1 only.
 
 
   /* ==================================================
+     AUTONOMOUS AGENT MODE
+     ================================================== */
+
+  async function handleAgentRun(
+    overrideGoal = null
+  ) {
+    const sourceGoal =
+      typeof overrideGoal ===
+        "string"
+        ? overrideGoal
+        : message;
+
+    const trimmedGoal =
+      sourceGoal.trim();
+
+    if (
+      !trimmedGoal ||
+      loading ||
+      agentLoading
+    ) {
+      return;
+    }
+
+    setError("");
+    setAgentResult(null);
+    setAgentLoading(true);
+
+    try {
+      const activeResume =
+        getActiveResume();
+
+      const resumeId =
+        activeResume?.resume_id;
+
+      if (!resumeId) {
+        throw new Error(
+          "Select a resume before starting Agent Mode."
+        );
+      }
+
+      const response =
+        await api.post(
+          "/api/agent/run",
+          {
+            resume_id: resumeId,
+            thread_id:
+              getThreadId(),
+            goal:
+              trimmedGoal,
+          }
+        );
+
+      const result =
+        response.data;
+
+      console.log(
+        "CareerPilot Agent response:",
+        result
+      );
+
+      setAgentResult(
+        result
+      );
+
+      setMessage("");
+    } catch (err) {
+      console.error(
+        "CareerPilot Agent request failed:",
+        err
+      );
+
+      setError(
+        err.response?.data?.detail ||
+        err.message ||
+        "CareerPilot Agent could not complete this goal."
+      );
+    } finally {
+      setAgentLoading(false);
+    }
+  }
+
+
+  function handleCareerSubmit(
+    overrideMessage = null
+  ) {
+    if (
+      careerMode === "agent"
+    ) {
+      return handleAgentRun(
+        overrideMessage
+      );
+    }
+
+    return handleSend(
+      overrideMessage
+    );
+  }
+
+
+  /* ==================================================
      KEYBOARD
      ================================================== */
 
@@ -1259,8 +1197,11 @@ Start with Stage 1 only.
     ) {
       event.preventDefault();
 
-      if (!loading) {
-        handleSend();
+      if (
+        !loading &&
+        !agentLoading
+      ) {
+        handleCareerSubmit();
       }
     }
   }
@@ -1718,10 +1659,63 @@ Do not add technologies or features that were not actually implemented.
                 </p>
 
                 <p className="text-xs text-text-muted">
-                  Online · Career guidance assistant
+                  {careerMode === "agent"
+                    ? "Autonomous · Plan, execute, evaluate and replan"
+                    : "Online · Career guidance assistant"}
                 </p>
 
               </div>
+
+            </div>
+
+
+            <div className="flex rounded-xl border border-border-soft bg-app-bg p-1">
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    loading ||
+                    agentLoading
+                  ) {
+                    return;
+                  }
+
+                  setCareerMode("chat");
+                  setError("");
+                }}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                  careerMode === "chat"
+                    ? "bg-white text-brand shadow-sm"
+                    : "text-text-muted hover:text-midnight"
+                }`}
+              >
+                <MessageSquareText size={14} />
+                Chat
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    loading ||
+                    agentLoading
+                  ) {
+                    return;
+                  }
+
+                  setCareerMode("agent");
+                  setError("");
+                }}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                  careerMode === "agent"
+                    ? "bg-white text-brand shadow-sm"
+                    : "text-text-muted hover:text-midnight"
+                }`}
+              >
+                <Bot size={14} />
+                Agent
+              </button>
 
             </div>
 
@@ -1740,8 +1734,7 @@ Do not add technologies or features that were not actually implemented.
                   handleSaveChat
                 }
                 disabled={
-                  !activeChatId ||
-                  messages.length === 0
+                  !activeChatId
                 }
                 className="inline-flex h-9 items-center gap-2 rounded-lg border border-border-soft bg-white px-3 text-xs font-semibold text-midnight transition hover:border-emerald-200 hover:bg-emerald-50/40 disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -1759,27 +1752,11 @@ Do not add technologies or features that were not actually implemented.
                   loading ||
                   messages.length === 0
                 }
-                className="inline-flex h-9 items-center gap-2 rounded-lg border border-border-soft bg-white px-3 text-xs font-semibold text-midnight transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <XCircle size={15} />
-
-                Clear chat
-              </button>
-
-              <button
-                type="button"
-                onClick={
-                  handleDeleteConversation
-                }
-                disabled={
-                  loading ||
-                  !activeChatId
-                }
                 className="inline-flex h-9 items-center gap-2 rounded-lg border border-border-soft bg-white px-3 text-xs font-semibold text-midnight transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Trash2 size={15} />
 
-                Delete
+                Clear chat
               </button>
 
             </div>
@@ -1791,13 +1768,24 @@ Do not add technologies or features that were not actually implemented.
 
           <div className="flex-1 overflow-y-auto bg-app-bg/40 p-5 sm:p-6">
 
-            {messages.length === 0 ? (
+
+            {careerMode === "agent" ? (
+
+              <AgentWorkspace
+                result={agentResult}
+                loading={agentLoading}
+              />
+
+            ) : messages.length === 0 ? (
+
               <EmptyChat
                 onSuggestion={
                   handleSuggestion
                 }
               />
+
             ) : (
+
               <div className="space-y-5">
 
                 {messages.map(
@@ -1851,7 +1839,6 @@ Do not add technologies or features that were not actually implemented.
 
           </div>
 
-
           {/* ================= ERROR ================= */}
 
           {error && (
@@ -1870,6 +1857,8 @@ Do not add technologies or features that were not actually implemented.
           )}
 
 
+          {careerMode === "chat" && (
+            <>
           {/* ================= SUGGESTED PROMPTS ================= */}
 
           <div className="border-t border-border-soft bg-white px-4 pt-4 sm:px-5">
@@ -1908,6 +1897,8 @@ Do not add technologies or features that were not actually implemented.
             </div>
 
           </div>
+            </>
+          )}
 
 
           {/* ================= COMPOSER ================= */}
@@ -1927,7 +1918,11 @@ Do not add technologies or features that were not actually implemented.
                   handleKeyDown
                 }
                 rows={3}
-                placeholder="Ask about your target role, preparation, projects, or next career step..."
+                placeholder={
+                  careerMode === "agent"
+                    ? "Give CareerPilot a goal, e.g. Prepare me for a DevOps role based on my current skill gaps..."
+                    : "Ask about your target role, preparation, projects, or next career step..."
+                }
                 className="w-full resize-none bg-transparent px-3 py-2 text-sm leading-6 text-midnight outline-none placeholder:text-gray-400"
               />
 
@@ -1940,17 +1935,26 @@ Do not add technologies or features that were not actually implemented.
                 <button
                   type="button"
                   onClick={() =>
-                    handleSend()
+                    handleCareerSubmit()
                   }
                   disabled={
                     loading ||
+                    agentLoading ||
                     !message.trim()
                   }
                   className="ml-auto flex h-10 items-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <Send size={16} />
-
-                  Send
+                  {careerMode === "agent" ? (
+                    <>
+                      <Play size={16} />
+                      Run Agent
+                    </>
+                  ) : (
+                    <>
+                      <Send size={16} />
+                      Send
+                    </>
+                  )}
                 </button>
 
               </div>
@@ -1967,6 +1971,221 @@ Do not add technologies or features that were not actually implemented.
   );
 }
 
+
+
+/* ==================================================
+   AGENT WORKSPACE
+   ================================================== */
+
+function AgentWorkspace({
+  result,
+  loading,
+}) {
+  if (loading) {
+    return (
+      <div className="flex min-h-[430px] flex-col items-center justify-center px-6 text-center">
+
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-soft text-brand">
+          <LoaderCircle
+            size={26}
+            className="animate-spin"
+          />
+        </div>
+
+        <h2 className="mt-5 text-lg font-semibold text-midnight">
+          CareerPilot Agent is working
+        </h2>
+
+        <p className="mt-2 max-w-md text-sm leading-7 text-text-muted">
+          Planning your goal, selecting the required
+          career tools, evaluating evidence, and
+          replanning when necessary.
+        </p>
+
+        <div className="mt-6 flex items-center gap-2 text-xs font-medium text-brand">
+          <CircleDot size={14} />
+          Autonomous execution in progress
+        </div>
+
+      </div>
+    );
+  }
+
+  if (!result) {
+    return (
+      <div className="flex min-h-[430px] flex-col items-center justify-center px-6 text-center">
+
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-soft text-brand">
+          <Bot size={25} />
+        </div>
+
+        <h2 className="mt-5 text-xl font-semibold tracking-tight text-midnight">
+          Autonomous Career Agent
+        </h2>
+
+        <p className="mt-3 max-w-lg text-sm leading-7 text-text-muted">
+          Give CareerPilot a career goal instead of
+          asking a single question. The agent can
+          create a plan, retrieve evidence, execute
+          multiple tools, evaluate the results, and
+          replan when required.
+        </p>
+
+        <div className="mt-6 grid w-full max-w-xl gap-3 sm:grid-cols-3">
+          <AgentCapability
+            icon={<Target size={17} />}
+            title="Plan"
+            description="Break down your goal"
+          />
+          <AgentCapability
+            icon={<Play size={17} />}
+            title="Execute"
+            description="Use career tools"
+          />
+          <AgentCapability
+            icon={<CheckCircle2 size={17} />}
+            title="Evaluate"
+            description="Verify the outcome"
+          />
+        </div>
+
+      </div>
+    );
+  }
+
+  const outcome =
+    result.run_outcome ||
+    (
+      result.task_complete
+        ? "completed"
+        : "incomplete"
+    );
+
+  const completed =
+    outcome === "completed";
+
+  return (
+    <div className="space-y-5">
+
+      <div
+        className={`rounded-2xl border p-5 ${
+          completed
+            ? "border-emerald-200 bg-emerald-50"
+            : "border-amber-200 bg-amber-50"
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          <div
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+              completed
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-amber-100 text-amber-700"
+            }`}
+          >
+            {completed ? (
+              <CheckCircle2 size={20} />
+            ) : (
+              <Clock3 size={20} />
+            )}
+          </div>
+
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-muted">
+              Agent outcome
+            </p>
+            <h2 className="mt-1 text-lg font-semibold text-midnight">
+              {completed
+                ? "Goal completed"
+                : "Goal incomplete"}
+            </h2>
+            <p className="mt-1 text-xs leading-5 text-text-muted">
+              CareerPilot completed its analysis and
+              prepared the guidance below.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {result.goal && (
+        <AgentSection
+          title="Your Goal"
+          icon={<Target size={16} />}
+        >
+          <p className="text-sm leading-7 text-text-muted">
+            {result.goal}
+          </p>
+        </AgentSection>
+      )}
+
+      {result.final_response ? (
+        <AgentSection
+          title="CareerPilot Guidance"
+          icon={<Sparkles size={16} />}
+        >
+          <RichTextResponse
+            content={
+              result.final_response
+            }
+          />
+        </AgentSection>
+      ) : (
+        <AgentSection
+          title="CareerPilot Guidance"
+          icon={<Sparkles size={16} />}
+        >
+          <p className="text-sm leading-7 text-text-muted">
+            CareerPilot could not generate final
+            guidance for this goal. Refine the goal
+            and run the agent again.
+          </p>
+        </AgentSection>
+      )}
+
+    </div>
+  );
+}
+
+
+function AgentCapability({
+  icon,
+  title,
+  description,
+}) {
+  return (
+    <div className="rounded-xl border border-border-soft bg-white p-4 text-left">
+      <div className="text-brand">
+        {icon}
+      </div>
+      <p className="mt-3 text-sm font-semibold text-midnight">
+        {title}
+      </p>
+      <p className="mt-1 text-xs leading-5 text-text-muted">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+
+function AgentSection({
+  title,
+  icon,
+  children,
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border-soft bg-white shadow-sm">
+      <div className="flex items-center gap-2 border-b border-border-soft px-5 py-4 text-brand">
+        {icon}
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em]">
+          {title}
+        </p>
+      </div>
+      <div className="p-5">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 
 /* ==================================================

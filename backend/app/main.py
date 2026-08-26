@@ -8,16 +8,24 @@ from fastapi import (
 from fastapi.middleware.cors import (
     CORSMiddleware,
 )
+
 from langchain_core.messages import (
     HumanMessage,
 )
+
 from pydantic import (
     BaseModel,
     Field,
 )
+from app.agent_history_routes import (
+    router as agent_history_router,
+)
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.agent_routes import (
+    router as agent_router,
+)
 from app.analysis_history_routes import (
     router as analysis_history_router,
 )
@@ -46,9 +54,9 @@ from app.services.conversation_service import (
 )
 
 
-# ==================================================
+# ============================================================
 # PERSISTED SKILL GAP CONTEXT
-# ==================================================
+# ============================================================
 
 
 def _parse_json_value(
@@ -66,6 +74,7 @@ def _parse_json_value(
         parsed = json.loads(
             value
         )
+
     except (
         json.JSONDecodeError,
         TypeError,
@@ -202,9 +211,9 @@ def _load_latest_skill_gap_context(
     )
 
 
-# ==================================================
+# ============================================================
 # FASTAPI APPLICATION
-# ==================================================
+# ============================================================
 
 
 app = FastAPI(
@@ -212,9 +221,9 @@ app = FastAPI(
 )
 
 
-# ==================================================
+# ============================================================
 # CORS CONFIGURATION
-# ==================================================
+# ============================================================
 #
 # Local development:
 #
@@ -226,7 +235,7 @@ app = FastAPI(
 # CORS_ORIGINS can be replaced with the deployed
 # CareerPilot frontend / CloudFront URL without
 # modifying application source code.
-# ==================================================
+# ============================================================
 
 
 cors_origins_raw = os.getenv(
@@ -260,9 +269,9 @@ app.add_middleware(
 )
 
 
-# ==================================================
+# ============================================================
 # ROUTERS
-# ==================================================
+# ============================================================
 
 
 app.include_router(
@@ -273,7 +282,9 @@ app.include_router(
 app.include_router(
     resume_router
 )
-
+app.include_router(
+    agent_history_router
+)
 
 app.include_router(
     analysis_history_router
@@ -285,9 +296,19 @@ app.include_router(
 )
 
 
-# ==================================================
+# ============================================================
+# AGENTIC CAREER AI ROUTER
+# ============================================================
+
+
+app.include_router(
+    agent_router
+)
+
+
+# ============================================================
 # CHAT SCHEMAS
-# ==================================================
+# ============================================================
 
 
 class ChatMessage(
@@ -330,9 +351,9 @@ class ChatRequest(
     )
 
 
-# ==================================================
+# ============================================================
 # HEALTH CHECK
-# ==================================================
+# ============================================================
 
 
 @app.get(
@@ -359,9 +380,9 @@ def health_check():
     }
 
 
-# ==================================================
+# ============================================================
 # CAREER AI CHAT
-# ==================================================
+# ============================================================
 
 
 @app.post(
@@ -381,16 +402,16 @@ def chat(
     conversation workflow.
     """
 
-    # --------------------------------------------------
+    # --------------------------------------------------------
     # 1. Validate conversation ownership
-    # --------------------------------------------------
+    # --------------------------------------------------------
     #
     # If the thread does not exist, CareerPilot
     # creates it for the authenticated user.
     #
     # If the thread already belongs to another user,
     # the conversation service rejects access.
-    # --------------------------------------------------
+    # --------------------------------------------------------
 
     get_or_create_owned_conversation(
         db=
@@ -402,9 +423,9 @@ def chat(
     )
 
 
-    # --------------------------------------------------
+    # --------------------------------------------------------
     # 2. Configure LangGraph conversation identity
-    # --------------------------------------------------
+    # --------------------------------------------------------
 
     config = {
         "configurable": {
@@ -414,9 +435,9 @@ def chat(
     }
 
 
-    # --------------------------------------------------
+    # --------------------------------------------------------
     # 3. Build base graph state
-    # --------------------------------------------------
+    # --------------------------------------------------------
 
     graph_input = {
         "message":
@@ -461,14 +482,14 @@ def chat(
     }
 
 
-    # --------------------------------------------------
+    # --------------------------------------------------------
     # 4. Add profile fields only when supplied
-    # --------------------------------------------------
+    # --------------------------------------------------------
     #
     # This prevents blank request values from
     # overwriting information already stored inside
     # LangGraph conversation state.
-    # --------------------------------------------------
+    # --------------------------------------------------------
 
     if request.name:
         graph_input[
@@ -508,9 +529,9 @@ def chat(
         ] = request.career_goal
 
 
-    # --------------------------------------------------
+    # --------------------------------------------------------
     # 5. Add Job Description only when supplied
-    # --------------------------------------------------
+    # --------------------------------------------------------
 
     if request.job_description:
         graph_input[
@@ -518,9 +539,9 @@ def chat(
         ] = request.job_description
 
 
-    # --------------------------------------------------
+    # --------------------------------------------------------
     # 6. Hydrate latest persisted Skill Gap when useful
-    # --------------------------------------------------
+    # --------------------------------------------------------
     #
     # Career AI general conversations normally send a
     # resume_id but no job_description. In that case,
@@ -531,7 +552,7 @@ def chat(
     # requests already send their own job_description,
     # so we intentionally do not inject an older report
     # into those workflows.
-    # --------------------------------------------------
+    # --------------------------------------------------------
 
     if (
         request.resume_id is not None
@@ -562,9 +583,9 @@ def chat(
             ] = skill_gap_analysis
 
 
-    # --------------------------------------------------
+    # --------------------------------------------------------
     # 7. Execute LangGraph workflow
-    # --------------------------------------------------
+    # --------------------------------------------------------
 
     result = (
         career_router_graph.invoke(
@@ -575,16 +596,16 @@ def chat(
     )
 
 
-    # --------------------------------------------------
+    # --------------------------------------------------------
     # 8. Standardize API response
-    # --------------------------------------------------
+    # --------------------------------------------------------
     #
     # Structured analysis intents return nested JSON
     # under "data".
     #
     # Conversational intents return text under
     # "response".
-    # --------------------------------------------------
+    # --------------------------------------------------------
 
     intent = result[
         "intent"
@@ -627,9 +648,9 @@ def chat(
             }
 
 
-            # ------------------------------------------
+            # ----------------------------------------------
             # Persisted workflow identifiers
-            # ------------------------------------------
+            # ----------------------------------------------
 
             if (
                 result.get(
@@ -705,9 +726,9 @@ def chat(
             }
 
 
-    # --------------------------------------------------
+    # --------------------------------------------------------
     # 9. Normal conversational response
-    # --------------------------------------------------
+    # --------------------------------------------------------
 
     return {
         "intent":

@@ -50,19 +50,18 @@ function History() {
       );
 
     } catch (err) {
-   
+
       setError(
         err.response?.data?.detail ||
         err.message ||
         "CareerPilot could not load your analysis history."
       );
+    } finally {
+      setLoading(false);
     }
-      finally {
-    setLoading(false);
   }
 
-  
-  }
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadHistory();
