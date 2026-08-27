@@ -50,6 +50,7 @@ langchain-protocol==0.0.18
 langchain-text-splitters==1.1.2
 langgraph==1.2.11
 langgraph-checkpoint==4.2.0
+langgraph-checkpoint-mysql==3.0.0
 langgraph-prebuilt==1.1.0
 langgraph-sdk==0.4.2
 langsmith==0.11.0

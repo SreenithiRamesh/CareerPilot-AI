@@ -72,7 +72,7 @@ logs/
 # ------------------------------
 .DS_Store
 Thumbs.db
-
+.env.docker
 # ------------------------------
 # Temporary / backup files
 # ------------------------------
@@ -81,3 +81,5 @@ Thumbs.db
 *.bak
 *.swp
 *~
+.env.docker
+!.env.docker.example
