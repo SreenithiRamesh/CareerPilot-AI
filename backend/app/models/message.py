@@ -54,6 +54,13 @@ class Message(Base):
         index=True,
     )
 
+    mode: Mapped[str] = mapped_column(
+        String(20),
+        default="chat",
+        server_default="chat",
+        nullable=False,
+    )
+
     role: Mapped[str] = mapped_column(
         String(20),
         nullable=False,

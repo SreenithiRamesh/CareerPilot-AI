@@ -123,6 +123,9 @@ function mapConversationDetail(
       ? conversation.messages.map(
           (item) => ({
             id: item.id,
+            mode:
+              item.mode ||
+              "chat",
             role: item.role,
             content:
               parseAssistantContent(
@@ -316,16 +319,22 @@ function CareerAI() {
     useState("chat");
 
   const [
-    agentResult,
-    setAgentResult,
-  ] =
-    useState(null);
-
-  const [
     agentLoading,
     setAgentLoading,
   ] =
     useState(false);
+
+  const chatMessages =
+    messages.filter(
+      (item) =>
+        item.mode !== "agent"
+    );
+
+  const agentMessages =
+    messages.filter(
+      (item) =>
+        item.mode === "agent"
+    );
 
 
   /* ==================================================
@@ -711,7 +720,6 @@ Start with Stage 1 only.
     setMessage("");
     setError("");
     setSearchQuery("");
-    setAgentResult(null);
   }
 
 
@@ -744,7 +752,6 @@ Start with Stage 1 only.
       setMessages([]);
       setMessage("");
       setError("");
-      setAgentResult(null);
       return;
     }
 
@@ -780,7 +787,6 @@ Start with Stage 1 only.
         detail.messages
       );
       setMessage("");
-      setAgentResult(null);
     } catch (openError) {
       console.error(
         "Career AI conversation could not be opened:",
@@ -1005,7 +1011,6 @@ Start with Stage 1 only.
 
       setMessage("");
       setError("");
-      setAgentResult(null);
       setSaveNotice("Deleted");
     } catch (deleteError) {
       console.error(
@@ -1063,6 +1068,7 @@ Start with Stage 1 only.
 
     const userMessage = {
       id: temporaryMessageId,
+      mode: "chat",
       role: "user",
       content: trimmedMessage,
     };
@@ -1151,6 +1157,7 @@ Start with Stage 1 only.
         (previous) => [
           ...previous,
           {
+            mode: "chat",
             role: "assistant",
             content:
               assistantResponse,
@@ -1213,7 +1220,8 @@ Start with Stage 1 only.
      ================================================== */
 
   async function handleAgentRun(
-    overrideGoal = null
+    overrideGoal = null,
+    overrideRequestId = null
   ) {
     const sourceGoal =
       typeof overrideGoal ===
@@ -1234,8 +1242,15 @@ Start with Stage 1 only.
     }
 
     setError("");
-    setAgentResult(null);
+    setFailedRequest(null);
     setAgentLoading(true);
+
+    const requestId =
+      overrideRequestId ||
+      createChatRequestId();
+
+    const threadId =
+      getThreadId();
 
     try {
       const activeResume =
@@ -1262,11 +1277,14 @@ Start with Stage 1 only.
         await api.post(
           "/api/agent/run",
           {
+            request_id:
+              requestId,
             resume_id: resumeId,
             thread_id:
-              getThreadId(),
+              threadId,
             goal:
               trimmedGoal,
+            max_iterations: 6,
           }
         );
 
@@ -1278,11 +1296,45 @@ Start with Stage 1 only.
         result
       );
 
-      setAgentResult(
-        result
+      setMessage("");
+      setFailedRequest(null);
+
+      const detailResponse =
+        await api.get(
+          `/api/conversations/${encodeURIComponent(
+            threadId
+          )}`
+        );
+
+      const detail =
+        mapConversationDetail(
+          detailResponse.data
+        );
+
+      setMessages(
+        detail.messages
       );
 
-      setMessage("");
+      setChatHistory(
+        (previous) =>
+          previous.map(
+            (chat) =>
+              chat.id === detail.id
+                ? detail
+                : chat
+          )
+      );
+
+      try {
+        await refreshConversationHistory(
+          threadId
+        );
+      } catch (refreshError) {
+        console.error(
+          "Agent conversation list could not be refreshed:",
+          refreshError
+        );
+      }
     } catch (err) {
       console.error(
         "CareerPilot Agent request failed:",
@@ -1290,10 +1342,60 @@ Start with Stage 1 only.
       );
 
       setError(
-        err.response?.data?.detail ||
-        err.message ||
-        "CareerPilot Agent could not complete this goal."
+        getChatErrorMessage(
+          err,
+          "CareerPilot Agent could not complete this goal."
+        )
       );
+
+      const isRetryable =
+        err.response?.status === 503 ||
+        err.code === "ERR_NETWORK";
+
+      if (isRetryable) {
+        setFailedRequest({
+          mode: "agent",
+          message: trimmedGoal,
+          requestId,
+        });
+
+        setMessage(trimmedGoal);
+      } else {
+        setMessage("");
+      }
+
+      try {
+        const detailResponse =
+          await api.get(
+            `/api/conversations/${encodeURIComponent(
+              threadId
+            )}`
+          );
+
+        const detail =
+          mapConversationDetail(
+            detailResponse.data
+          );
+
+        setMessages(
+          detail.messages
+        );
+
+        setChatHistory(
+          (previous) =>
+            previous.map(
+              (chat) =>
+                chat.id === detail.id
+                  ? detail
+                  : chat
+            )
+        );
+      } catch (historyError) {
+        console.error(
+          "Failed Agent turn could not be reloaded:",
+          historyError
+        );
+      }
     } finally {
       setAgentLoading(false);
     }
@@ -1930,11 +2032,11 @@ Do not add technologies or features that were not actually implemented.
             ) : careerMode === "agent" ? (
 
               <AgentWorkspace
-                result={agentResult}
+                messages={agentMessages}
                 loading={agentLoading}
               />
 
-            ) : messages.length === 0 ? (
+            ) : chatMessages.length === 0 ? (
 
               <EmptyChat
                 onSuggestion={
@@ -1946,7 +2048,7 @@ Do not add technologies or features that were not actually implemented.
 
               <div className="space-y-5">
 
-                {messages.map(
+                {chatMessages.map(
                   (
                     chatMessage,
                     index
@@ -2015,12 +2117,22 @@ Do not add technologies or features that were not actually implemented.
                 {failedRequest && (
                   <button
                     type="button"
-                    onClick={() =>
-                      handleSend(
+                    onClick={() => {
+                      if (
+                        failedRequest.mode ===
+                        "agent"
+                      ) {
+                        return handleAgentRun(
+                          failedRequest.message,
+                          failedRequest.requestId
+                        );
+                      }
+
+                      return handleSend(
                         failedRequest.message,
                         failedRequest.requestId
-                      )
-                    }
+                      );
+                    }}
                     disabled={
                       loading ||
                       agentLoading ||
@@ -2161,41 +2273,34 @@ Do not add technologies or features that were not actually implemented.
    AGENT WORKSPACE
    ================================================== */
 
-function AgentWorkspace({
-  result,
-  loading,
-}) {
-  if (loading) {
-    return (
-      <div className="flex min-h-[430px] flex-col items-center justify-center px-6 text-center">
-
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-soft text-brand">
-          <LoaderCircle
-            size={26}
-            className="animate-spin"
-          />
-        </div>
-
-        <h2 className="mt-5 text-lg font-semibold text-midnight">
-          CareerPilot Agent is working
-        </h2>
-
-        <p className="mt-2 max-w-md text-sm leading-7 text-text-muted">
-          Planning your goal, selecting the required
-          career tools, evaluating evidence, and
-          replanning when necessary.
-        </p>
-
-        <div className="mt-6 flex items-center gap-2 text-xs font-medium text-brand">
-          <CircleDot size={14} />
-          Autonomous execution in progress
-        </div>
-
-      </div>
-    );
+function cleanAgentGuidance(
+  content
+) {
+  if (
+    typeof content !== "string"
+  ) {
+    return content;
   }
 
-  if (!result) {
+  return content
+    .replace(
+      /^\s*(?:#{1,6}\s*)?(?:\*\*)?CareerPilot Guidance(?:\*\*)?\s*:?\s*/i,
+      ""
+    ).replace(
+      /\\([#*_`])/g,
+      "$1"
+    )
+    .trim();
+}
+
+function AgentWorkspace({
+  messages,
+  loading,
+}) {
+  if (
+    messages.length === 0 &&
+    !loading
+  ) {
     return (
       <div className="flex min-h-[430px] flex-col items-center justify-center px-6 text-center">
 
@@ -2237,92 +2342,60 @@ function AgentWorkspace({
     );
   }
 
-  const outcome =
-    result.run_outcome ||
-    (
-      result.task_complete
-        ? "completed"
-        : "incomplete"
-    );
-
-  const completed =
-    outcome === "completed";
-
   return (
     <div className="space-y-5">
 
-      <div
-        className={`rounded-2xl border p-5 ${
-          completed
-            ? "border-emerald-200 bg-emerald-50"
-            : "border-amber-200 bg-amber-50"
-        }`}
-      >
-        <div className="flex items-start gap-3">
-          <div
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-              completed
-                ? "bg-emerald-100 text-emerald-700"
-                : "bg-amber-100 text-amber-700"
-            }`}
-          >
-            {completed ? (
-              <CheckCircle2 size={20} />
-            ) : (
-              <Clock3 size={20} />
-            )}
-          </div>
-
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-muted">
-              Agent outcome
-            </p>
-            <h2 className="mt-1 text-lg font-semibold text-midnight">
-              {completed
-                ? "Goal completed"
-                : "Goal incomplete"}
-            </h2>
-            <p className="mt-1 text-xs leading-5 text-text-muted">
-              CareerPilot completed its analysis and
-              prepared the guidance below.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {result.goal && (
-        <AgentSection
-          title="Your Goal"
-          icon={<Target size={16} />}
-        >
-          <p className="text-sm leading-7 text-text-muted">
-            {result.goal}
-          </p>
-        </AgentSection>
+      {messages.map(
+        (agentMessage) =>
+          agentMessage.role ===
+          "user" ? (
+            <AgentSection
+              key={agentMessage.id}
+              title="Your Goal"
+              icon={<Target size={16} />}
+            >
+              <p className="text-sm leading-7 text-text-muted">
+                {agentMessage.content}
+              </p>
+            </AgentSection>
+          ) : (
+            <AgentSection
+              key={agentMessage.id}
+              title="CareerPilot Guidance"
+              icon={<Sparkles size={16} />}
+            >
+              <RichTextResponse
+                content={
+                  cleanAgentGuidance(
+                    agentMessage.content
+                  )
+                }
+                showHeader={false}
+              />
+            </AgentSection>
+          )
       )}
 
-      {result.final_response ? (
-        <AgentSection
-          title="CareerPilot Guidance"
-          icon={<Sparkles size={16} />}
-        >
-          <RichTextResponse
-            content={
-              result.final_response
-            }
-          />
-        </AgentSection>
-      ) : (
-        <AgentSection
-          title="CareerPilot Guidance"
-          icon={<Sparkles size={16} />}
-        >
-          <p className="text-sm leading-7 text-text-muted">
-            CareerPilot could not generate final
-            guidance for this goal. Refine the goal
-            and run the agent again.
-          </p>
-        </AgentSection>
+      {loading && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+          <div className="flex items-center gap-3">
+            <LoaderCircle
+              size={20}
+              className="animate-spin text-brand"
+            />
+
+            <div>
+              <h2 className="text-sm font-semibold text-midnight">
+                CareerPilot Agent is working
+              </h2>
+
+              <p className="mt-1 text-xs leading-5 text-text-muted">
+                Planning, executing, evaluating, and
+                replanning your goal when required.
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>
@@ -2586,6 +2659,7 @@ function ChatBubble({
 
 function RichTextResponse({
   content,
+   showHeader = true,
 }) {
   const blocks =
     parseRichTextBlocks(
@@ -2595,23 +2669,24 @@ function RichTextResponse({
   return (
     <div className="w-full max-w-[760px] overflow-hidden rounded-2xl rounded-tl-sm border border-border-soft bg-white shadow-sm">
 
-      <div className="border-b border-border-soft bg-white px-5 py-4">
+            {showHeader && (
+        <div className="border-b border-border-soft bg-white px-5 py-4">
 
-        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
 
-          <Sparkles
-            size={15}
-            className="text-brand"
-          />
+            <Sparkles
+              size={15}
+              className="text-brand"
+            />
 
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">
-            CareerPilot Guidance
-          </p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">
+              CareerPilot Guidance
+            </p>
+
+          </div>
 
         </div>
-
-      </div>
-
+      )}
       <div className="space-y-4 p-5 sm:p-6">
 
         {blocks.map(

@@ -24,6 +24,11 @@ ALLOWED_MESSAGE_ROLES = {
     "assistant",
 }
 
+ALLOWED_MESSAGE_MODES = {
+    "chat",
+    "agent",
+}
+
 
 def _normalize_message_content(
     content: str,
@@ -79,6 +84,22 @@ def _normalize_message_role(
                 status.HTTP_422_UNPROCESSABLE_ENTITY
             ),
             detail="Unsupported message role.",
+        )
+
+    return cleaned
+
+
+def _normalize_message_mode(
+    mode: str,
+) -> str:
+    cleaned = mode.strip().lower()
+
+    if cleaned not in ALLOWED_MESSAGE_MODES:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_422_UNPROCESSABLE_ENTITY
+            ),
+            detail="Unsupported message mode.",
         )
 
     return cleaned
@@ -289,6 +310,7 @@ def list_conversation_messages(
     *,
     user_id: int,
     thread_id: str,
+    mode: str | None = None,
 ) -> tuple[
     Conversation,
     list[Message],
@@ -299,13 +321,23 @@ def list_conversation_messages(
         thread_id=thread_id,
     )
 
-    messages = db.scalars(
-        select(Message)
-        .where(
-            Message.conversation_id
-            == conversation.id
+    statement = select(Message).where(
+        Message.conversation_id
+        == conversation.id
+    )
+
+    if mode is not None:
+        normalized_mode = (
+            _normalize_message_mode(mode)
         )
-        .order_by(
+
+        statement = statement.where(
+            Message.mode
+            == normalized_mode
+        )
+
+    messages = db.scalars(
+        statement.order_by(
             Message.created_at.asc(),
             Message.id.asc(),
         )
@@ -323,12 +355,16 @@ def get_conversation_message_by_request(
     conversation: Conversation,
     request_id: str,
     role: str,
+    mode: str = "chat",
 ) -> Message | None:
     normalized_request_id = (
         _normalize_request_id(request_id)
     )
     normalized_role = (
         _normalize_message_role(role)
+    )
+    normalized_mode = (
+        _normalize_message_mode(mode)
     )
 
     return db.scalar(
@@ -337,6 +373,8 @@ def get_conversation_message_by_request(
             == conversation.id,
             Message.request_id
             == normalized_request_id,
+            Message.mode
+            == normalized_mode,
             Message.role
             == normalized_role,
         )
@@ -351,12 +389,16 @@ def save_conversation_message(
     content: str,
     request_id: str | None = None,
     response_payload: str | None = None,
+    mode: str = "chat",
 ) -> Message:
     normalized_role = (
         _normalize_message_role(role)
     )
     normalized_content = (
         _normalize_message_content(content)
+    )
+    normalized_mode = (
+        _normalize_message_mode(mode)
     )
 
     normalized_request_id: str | None = None
@@ -372,6 +414,7 @@ def save_conversation_message(
                 conversation=conversation,
                 request_id=normalized_request_id,
                 role=normalized_role,
+                mode=normalized_mode,
             )
         )
 
@@ -396,6 +439,7 @@ def save_conversation_message(
     message = Message(
         conversation_id=conversation.id,
         request_id=normalized_request_id,
+        mode=normalized_mode,
         role=normalized_role,
         content=normalized_content,
         response_payload=response_payload,
@@ -432,6 +476,7 @@ def save_conversation_message(
                 conversation=conversation,
                 request_id=normalized_request_id,
                 role=normalized_role,
+                mode=normalized_mode,
             )
         )
 

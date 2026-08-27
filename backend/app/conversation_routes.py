@@ -123,6 +123,7 @@ def get_conversation(
         messages=[
             ConversationMessageResponse(
                 id=message.id,
+                mode=message.mode,
                 role=message.role,
                 content=message.content,
                 created_at=message.created_at,

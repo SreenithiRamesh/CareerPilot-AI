@@ -1,6 +1,10 @@
 import os
 
 from dotenv import load_dotenv
+from langchain_core.messages import (
+    AIMessage,
+    HumanMessage,
+)
 from langchain_google_genai import (
     ChatGoogleGenerativeAI,
 )
@@ -9,9 +13,64 @@ from pydantic import BaseModel, Field
 from app.career_agent_state import (
     CareerAgentState,
 )
-
-
 load_dotenv()
+
+
+def _format_conversation_history(
+    state: CareerAgentState,
+    *,
+    limit: int = 12,
+) -> str:
+    """
+    Format recent persisted Agent conversation turns
+    for planner reference resolution.
+    """
+
+    messages = state.get(
+        "messages",
+        [],
+    )
+
+    formatted_messages = []
+
+    for message in messages[-limit:]:
+        content = getattr(
+            message,
+            "content",
+            "",
+        )
+
+        if not content:
+            continue
+
+        if isinstance(
+            message,
+            HumanMessage,
+        ):
+            role = "User"
+
+        elif isinstance(
+            message,
+            AIMessage,
+        ):
+            role = "CareerPilot"
+
+        else:
+            continue
+
+        formatted_messages.append(
+            f"{role}: {content}"
+        )
+
+    if not formatted_messages:
+        return (
+            "No previous Agent conversation "
+            "is available."
+        )
+
+    return "\n\n".join(
+        formatted_messages
+    )
 
 
 # ============================================================
@@ -81,6 +140,12 @@ def planner_node(
 
     user_goal = state["user_goal"]
 
+    conversation_history = (
+        _format_conversation_history(
+            state
+        )
+    )
+
     # ========================================================
     # REPLANNING CONTEXT
     # ========================================================
@@ -135,6 +200,10 @@ You are the planning component of CareerPilot Agent.
 Your responsibility is to convert the user's career goal
 into a short execution plan.
 
+PREVIOUS AGENT CONVERSATION
+
+{conversation_history}
+
 USER GOAL
 
 {user_goal}
@@ -185,6 +254,23 @@ AVAILABLE CAREERPILOT CAPABILITIES
 
 
 PLANNING RULES
+
+- Use PREVIOUS AGENT CONVERSATION to understand follow-up
+  references such as "first priority", "that plan",
+  "the previous project", "explain it", or "revise Week 1".
+
+- Treat USER GOAL as the newest instruction.
+
+- If the newest goal modifies an earlier request, preserve
+  the relevant earlier context while applying the new
+  instruction.
+
+- Conversation history may explain what the user means,
+  but it must not be treated as verified resume evidence
+  unless supported by persisted CareerPilot data.
+
+- Do not tell the user that prior context is unavailable
+  when it is present in PREVIOUS AGENT CONVERSATION.
 
 - Create only the execution steps actually required to
   accomplish the user's goal.
