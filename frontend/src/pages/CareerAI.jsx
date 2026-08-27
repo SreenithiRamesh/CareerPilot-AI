@@ -1,4 +1,4 @@
-import {
+import{
   useEffect,
   useState,
 } from "react";
@@ -28,6 +28,11 @@ import {
 } from "lucide-react";
 
 import api from "../services/api";
+
+import {
+  createChatRequestId,
+  getChatErrorMessage,
+} from "../utils/chatRequest";
 
 
 const PROMPT_SUGGESTIONS = [
@@ -268,6 +273,11 @@ function CareerAI() {
 
   const [error, setError] =
     useState("");
+
+  const [
+    failedRequest,
+    setFailedRequest,
+  ] = useState(null);
 
   const [
     chatHistory,
@@ -1018,7 +1028,8 @@ Start with Stage 1 only.
      ================================================== */
 
   async function handleSend(
-    overrideMessage = null
+    overrideMessage = null,
+    overrideRequestId = null
   ) {
     const sourceMessage =
       typeof overrideMessage ===
@@ -1039,6 +1050,11 @@ Start with Stage 1 only.
     }
 
     setError("");
+    setFailedRequest(null);
+
+    const requestId =
+      overrideRequestId ||
+      createChatRequestId();
 
     const temporaryMessageId =
       createUniqueId(
@@ -1084,6 +1100,9 @@ Start with Stage 1 only.
         await api.post(
           "/api/chat",
           {
+            request_id:
+              requestId,
+
             thread_id:
               threadId,
 
@@ -1101,6 +1120,8 @@ Start with Stage 1 only.
 
       const apiData =
         response.data;
+
+      setFailedRequest(null);
 
       console.log(
         "Career AI API response:",
@@ -1154,10 +1175,24 @@ Start with Stage 1 only.
       );
 
       setError(
-        err.response?.data?.detail ||
-        err.message ||
-        "CareerPilot could not respond right now."
+        getChatErrorMessage(
+          err,
+          "CareerPilot could not respond right now."
+        )
       );
+
+      const isRetryable =
+        !err.response ||
+        err.response.status === 503;
+
+      if (isRetryable) {
+        setFailedRequest({
+          message: trimmedMessage,
+          requestId,
+        });
+
+        setMessage(trimmedMessage);
+      }
 
       setMessages(
         (previous) =>
@@ -1972,9 +2007,31 @@ Do not add technologies or features that were not actually implemented.
                 className="mt-0.5 shrink-0"
               />
 
-              <span>
-                {error}
-              </span>
+              <div className="flex-1">
+                <p>
+                  {error}
+                </p>
+
+                {failedRequest && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleSend(
+                        failedRequest.message,
+                        failedRequest.requestId
+                      )
+                    }
+                    disabled={
+                      loading ||
+                      agentLoading ||
+                      conversationLoading
+                    }
+                    className="mt-3 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Retry message
+                  </button>
+                )}
+              </div>
 
             </div>
           )}

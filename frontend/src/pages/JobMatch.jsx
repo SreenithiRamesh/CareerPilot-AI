@@ -1,4 +1,7 @@
-import { useState } from "react";
+import {
+  useRef,
+  useState,
+} from "react";
 
 import {
   AlertTriangle,
@@ -15,6 +18,12 @@ import {
 import { useNavigate } from "react-router-dom";
 
 import api from "../services/api";
+
+import {
+  completeChatRequest,
+  getChatErrorMessage,
+  getRetryableChatRequestId,
+} from "../utils/chatRequest";
 
 import {
   exportJobMatchPDF,
@@ -36,6 +45,9 @@ function JobMatch() {
 
   const [analysis, setAnalysis] =
     useState(null);
+
+  const pendingRequestRef =
+    useRef(null);
 
 
   function getActiveResume() {
@@ -92,6 +104,22 @@ function JobMatch() {
     }
 
 
+    const requestFingerprint =
+      JSON.stringify({
+        threadId:
+          activeResume.thread_id,
+        resumeId:
+          activeResume.resume_id,
+        jobDescription:
+          jobDescription.trim(),
+      });
+
+    const requestId =
+      getRetryableChatRequestId(
+        pendingRequestRef,
+        requestFingerprint
+      );
+
     setLoading(true);
 
 
@@ -100,6 +128,9 @@ function JobMatch() {
         await api.post(
           "/api/chat",
           {
+            request_id:
+              requestId,
+
             thread_id:
               activeResume.thread_id,
 
@@ -145,7 +176,6 @@ function JobMatch() {
         response.data.data
       );
 
-
       /*
        * Store the latest Job Match result
        * together with the resume that produced it.
@@ -178,11 +208,17 @@ function JobMatch() {
         })
       );
 
+      completeChatRequest(
+        pendingRequestRef,
+        requestId
+      );
+
     } catch (err) {
       setError(
-        err.response?.data?.detail ||
-        err.message ||
-        "CareerPilot could not complete the job match."
+        getChatErrorMessage(
+          err,
+          "CareerPilot could not complete the job match."
+        )
       );
 
     } finally {
@@ -217,7 +253,7 @@ function JobMatch() {
       });
 
     } catch  {
-     
+
       setError(
         "CareerPilot could not generate the PDF report. Please try again."
       );

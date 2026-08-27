@@ -1,7 +1,8 @@
 
-
-
-import { useState } from "react";
+import {
+  useRef,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -19,6 +20,12 @@ import {
 } from "lucide-react";
 
 import api from "../services/api";
+
+import {
+  completeChatRequest,
+  getChatErrorMessage,
+  getRetryableChatRequestId,
+} from "../utils/chatRequest";
 
 
 function readJSON(key) {
@@ -52,6 +59,9 @@ function SkillGap() {
 
   const [reportId, setReportId] =
     useState(null);
+
+  const pendingRequestRef =
+    useRef(null);
 
   const [
     checkedItems,
@@ -181,6 +191,25 @@ function SkillGap() {
     }
 
 
+    const requestFingerprint =
+      JSON.stringify({
+        threadId:
+          activeResume.thread_id,
+        resumeId:
+          activeResume.resume_id,
+        jobDescription:
+          latestJobMatch.job_description,
+        jobMatchResultId:
+          latestJobMatch.job_match_result_id ??
+          null,
+      });
+
+    const requestId =
+      getRetryableChatRequestId(
+        pendingRequestRef,
+        requestFingerprint
+      );
+
     setLoading(true);
 
 
@@ -189,6 +218,9 @@ function SkillGap() {
         await api.post(
           "/api/chat",
           {
+            request_id:
+              requestId,
+
             thread_id:
               activeResume.thread_id,
 
@@ -233,7 +265,6 @@ function SkillGap() {
       setAnalysis(
         response.data.data
       );
-
 
       const newReportId =
         response.data
@@ -294,11 +325,17 @@ function SkillGap() {
         })
       );
 
+      completeChatRequest(
+        pendingRequestRef,
+        requestId
+      );
+
     } catch (err) {
       setError(
-        err.response?.data?.detail ||
-        err.message ||
-        "CareerPilot could not complete the skill-gap analysis."
+        getChatErrorMessage(
+          err,
+          "CareerPilot could not complete the skill-gap analysis."
+        )
       );
 
     } finally {

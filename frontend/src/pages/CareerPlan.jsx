@@ -1,4 +1,7 @@
-import { useState } from "react";
+import {
+  useRef,
+  useState,
+} from "react";
 
 import {
   BriefcaseBusiness,
@@ -14,6 +17,12 @@ import {
 } from "lucide-react";
 
 import api from "../services/api";
+
+import {
+  completeChatRequest,
+  getChatErrorMessage,
+  getRetryableChatRequestId,
+} from "../utils/chatRequest";
 
 import {
   generateCareerReadinessReport,
@@ -52,6 +61,9 @@ function CareerPlan() {
 
   const [planId, setPlanId] =
     useState(null);
+
+  const pendingRequestRef =
+    useRef(null);
 
   const [
     checkedItems,
@@ -224,6 +236,26 @@ function CareerPlan() {
     }
 
 
+    const requestFingerprint =
+      JSON.stringify({
+        threadId:
+          activeResume.thread_id,
+        resumeId:
+          activeResume.resume_id,
+        jobMatchResultId:
+          latestJobMatch.job_match_result_id ??
+          null,
+        skillGapReportId:
+          latestSkillGap.skill_gap_report_id ??
+          null,
+      });
+
+    const requestId =
+      getRetryableChatRequestId(
+        pendingRequestRef,
+        requestFingerprint
+      );
+
     setLoading(true);
 
 
@@ -232,6 +264,9 @@ function CareerPlan() {
         await api.post(
           "/api/chat",
           {
+            request_id:
+              requestId,
+
             thread_id:
               activeResume.thread_id,
 
@@ -276,7 +311,6 @@ function CareerPlan() {
       setPlan(
         response.data.data
       );
-
 
       const newPlanId =
         response.data
@@ -344,11 +378,17 @@ function CareerPlan() {
         })
       );
 
+      completeChatRequest(
+        pendingRequestRef,
+        requestId
+      );
+
     } catch (err) {
       setError(
-        err.response?.data?.detail ||
-        err.message ||
-        "CareerPilot could not generate your career plan."
+        getChatErrorMessage(
+          err,
+          "CareerPilot could not generate your career plan."
+        )
       );
 
     } finally {
