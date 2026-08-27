@@ -1,14 +1,27 @@
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import (
+    BaseModel,
+    Field,
+)
 
 
-class AgentRunRequest(BaseModel):
+class AgentRunRequest(
+    BaseModel
+):
     resume_id: int = Field(
         gt=0,
     )
 
-    thread_id: str | None = None
+    thread_id: str = Field(
+        min_length=1,
+        max_length=255,
+    )
+
+    request_id: str = Field(
+        min_length=1,
+        max_length=64,
+    )
 
     goal: str = Field(
         min_length=1,
@@ -22,7 +35,9 @@ class AgentRunRequest(BaseModel):
     )
 
 
-class AgentStepResponse(BaseModel):
+class AgentStepResponse(
+    BaseModel
+):
     step_number: int
 
     planned_action: str
@@ -38,12 +53,14 @@ class AgentStepResponse(BaseModel):
     )
 
 
-class AgentRunResponse(BaseModel):
+class AgentRunResponse(
+    BaseModel
+):
     agent_run_id: int | None = None
 
     resume_id: int
 
-    thread_id: str | None = None
+    thread_id: str
 
     goal: str
 

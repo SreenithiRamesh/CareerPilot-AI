@@ -3,6 +3,10 @@ import os
 from typing import Any
 
 from dotenv import load_dotenv
+from langchain_core.messages import (
+    AIMessage,
+    HumanMessage,
+)
 from langchain_google_genai import (
     ChatGoogleGenerativeAI,
 )
@@ -13,6 +17,63 @@ from app.career_agent_state import (
 
 
 load_dotenv()
+
+
+def _format_conversation_history(
+    state: CareerAgentState,
+    *,
+    limit: int = 12,
+) -> str:
+    """
+    Format recent persisted Agent conversation turns
+    for final response continuity.
+    """
+
+    messages = state.get(
+        "messages",
+        [],
+    )
+
+    formatted_messages = []
+
+    for message in messages[-limit:]:
+        content = getattr(
+            message,
+            "content",
+            "",
+        )
+
+        if not content:
+            continue
+
+        if isinstance(
+            message,
+            HumanMessage,
+        ):
+            role = "User"
+
+        elif isinstance(
+            message,
+            AIMessage,
+        ):
+            role = "CareerPilot"
+
+        else:
+            continue
+
+        formatted_messages.append(
+            f"{role}: {content}"
+        )
+
+    if not formatted_messages:
+        return (
+            "No previous Agent conversation "
+            "is available."
+        )
+
+    return "\n\n".join(
+        formatted_messages
+    )
 
 
 finalizer_model = ChatGoogleGenerativeAI(
@@ -28,11 +89,18 @@ def finalizer_node(
 ) -> dict[str, Any]:
     """
     Generate the final user-facing answer from the
-    evidence collected during autonomous execution.
+    persisted conversation context and evidence collected
+    during autonomous execution.
 
-    The finalizer must use tool observations as the
-    source of truth and must not invent career evidence.
+    Tool observations remain the source of truth for
+    candidate-specific career evidence.
     """
+
+    conversation_history = (
+        _format_conversation_history(
+            state
+        )
+    )
 
     observations = state.get(
         "observations",
@@ -69,8 +137,13 @@ CareerPilot Agent.
 
 The agent has already executed the required tools.
 
-Your job is to answer the user's original goal using
-ONLY the evidence collected from those tools.
+Your job is to answer the user's latest goal using
+the conversation context and verified execution evidence.
+
+PREVIOUS AGENT CONVERSATION
+
+{conversation_history}
+
 
 USER GOAL
 
@@ -84,7 +157,25 @@ AGENT EXECUTION EVIDENCE
 
 FINAL RESPONSE RULES
 
-- Use the execution evidence as the source of truth.
+- Use PREVIOUS AGENT CONVERSATION to resolve references
+  such as "first priority", "that recommendation",
+  "the previous plan", "explain it", and "revise it".
+
+- Treat USER GOAL as the newest instruction and answer
+  it in the context of the earlier Agent turns.
+
+- Use conversation history for continuity and reference
+  resolution.
+
+- Use execution evidence as the source of truth for
+  resume facts, persisted analyses, skills, projects,
+  and career recommendations.
+
+- Never invent facts merely because they appeared in
+  an earlier generated response.
+
+- Do not repeat the complete previous answer unless the
+  newest goal explicitly requests it.
 
 - Do not invent skills, projects, experience,
   certifications, job-match results, or skill gaps.

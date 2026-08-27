@@ -11,6 +11,8 @@ class ConversationMessageResponse(
 ):
     id: int
 
+    mode: str
+
     role: str
 
     content: str
