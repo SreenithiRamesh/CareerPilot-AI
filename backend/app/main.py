@@ -1,12 +1,21 @@
-
 import json
 import logging
 import os
+from time import perf_counter
+from uuid import uuid4
+
+from app.logging_config import (
+    configure_logging,
+)
+
+
+configure_logging()
 
 from fastapi import (
     Depends,
     FastAPI,
     HTTPException,
+    Request,
     status,
 )
 from fastapi.middleware.cors import (
@@ -229,7 +238,67 @@ def _load_latest_skill_gap_context(
 app = FastAPI(
     title="CareerPilot AI",
 )
+@app.middleware("http")
+async def log_http_request(
+    request: Request,
+    call_next,
+):
+    """
+    Log safe request metadata and attach a correlation ID.
 
+    Request bodies, query strings, authorization headers,
+    and user data are intentionally excluded.
+    """
+
+    request_id = uuid4().hex
+    started_at = perf_counter()
+
+    try:
+        response = await call_next(
+            request
+        )
+
+    except Exception:
+        duration_ms = (
+            perf_counter() - started_at
+        ) * 1000
+
+        logger.exception(
+            (
+                "Unhandled request failure "
+                "method=%s path=%s "
+                "request_id=%s duration_ms=%.2f"
+            ),
+            request.method,
+            request.url.path,
+            request_id,
+            duration_ms,
+        )
+
+        raise
+
+    duration_ms = (
+        perf_counter() - started_at
+    ) * 1000
+
+    response.headers[
+        "X-Request-ID"
+    ] = request_id
+
+    logger.info(
+        (
+            "HTTP request completed "
+            "method=%s path=%s status_code=%s "
+            "request_id=%s duration_ms=%.2f"
+        ),
+        request.method,
+        request.url.path,
+        response.status_code,
+        request_id,
+        duration_ms,
+    )
+
+    return response
 
 # ============================================================
 # CORS CONFIGURATION
