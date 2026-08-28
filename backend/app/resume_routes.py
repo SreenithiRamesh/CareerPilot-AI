@@ -8,6 +8,7 @@ from fastapi import (
     UploadFile,
 )
 from pypdf import PdfReader
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
@@ -24,6 +25,53 @@ router = APIRouter()
 # Maximum allowed resume size: 5 MB
 MAX_RESUME_SIZE = 5 * 1024 * 1024
 
+
+
+@router.get("/api/resume/{resume_id}")
+def get_resume_metadata(
+    resume_id: int,
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+):
+    """
+    Restore metadata for a resume owned by the
+    authenticated user.
+
+    Returning 404 for both missing and unowned records
+    prevents disclosure of another user's resume IDs.
+    """
+
+    resume = db.scalar(
+        select(Resume).where(
+            Resume.id == resume_id,
+            Resume.user_id
+            == current_user.id,
+        )
+    )
+
+    if resume is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Resume not found.",
+        )
+
+    return {
+        "resume_id": resume.id,
+        "filename": (
+            resume.original_filename
+        ),
+        "processing_status": (
+            resume.processing_status
+        ),
+        "vector_collection_id": (
+            resume.vector_collection_id
+        ),
+        "upload_timestamp": (
+            resume.upload_timestamp
+        ),
+    }
 
 @router.post("/api/resume/upload")
 async def upload_resume(

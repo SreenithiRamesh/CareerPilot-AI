@@ -2146,6 +2146,10 @@ _mysql_saver_context = (
 
 memory = _mysql_saver_context.__enter__()
 
+# Create or upgrade the LangGraph checkpoint schema.
+# setup() is migration-aware and safe to run repeatedly.
+memory.setup()
+
 
 career_router_graph = builder.compile(
     checkpointer=memory
