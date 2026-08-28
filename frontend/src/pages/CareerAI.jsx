@@ -1,4 +1,4 @@
-import{
+import {
   useEffect,
   useState,
 } from "react";
@@ -33,7 +33,9 @@ import {
   createChatRequestId,
   getChatErrorMessage,
 } from "../utils/chatRequest";
-
+import {
+  cleanAgentGuidance,
+} from "../utils/agentGuidance";
 
 const PROMPT_SUGGESTIONS = [
   "How should I prepare for Java fresher interviews?",
@@ -2273,25 +2275,6 @@ Do not add technologies or features that were not actually implemented.
    AGENT WORKSPACE
    ================================================== */
 
-function cleanAgentGuidance(
-  content
-) {
-  if (
-    typeof content !== "string"
-  ) {
-    return content;
-  }
-
-  return content
-    .replace(
-      /^\s*(?:#{1,6}\s*)?(?:\*\*)?CareerPilot Guidance(?:\*\*)?\s*:?\s*/i,
-      ""
-    ).replace(
-      /\\([#*_`])/g,
-      "$1"
-    )
-    .trim();
-}
 
 function AgentWorkspace({
   messages,
