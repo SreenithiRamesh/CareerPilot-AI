@@ -1,4 +1,7 @@
-import { useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -27,6 +30,8 @@ function Resume() {
 
   const [loading, setLoading] =
     useState(false);
+  const [restoring, setRestoring] =
+  useState(false);
 
   const [result, setResult] =
     useState(null);
@@ -34,6 +39,152 @@ function Resume() {
   const [error, setError] =
     useState("");
 
+
+  /* ==================================================
+     RESTORE ACTIVE RESUME
+     ================================================== */
+
+  useEffect(() => {
+    let cancelled = false;
+    let activeResume = null;
+
+    try {
+      activeResume =
+        JSON.parse(
+          localStorage.getItem(
+            "careerpilot_active_resume"
+          ) || "null"
+        );
+
+    } catch {
+      localStorage.removeItem(
+        "careerpilot_active_resume"
+      );
+
+      localStorage.removeItem(
+        "careerpilot_resume_id"
+      );
+
+      return undefined;
+    }
+
+    if (
+      !activeResume?.resume_id
+    ) {
+      return undefined;
+    }
+
+    async function restoreResume() {
+      setRestoring(true);
+
+      try {
+        const response =
+          await api.get(
+            `/api/resume/${encodeURIComponent(
+              activeResume.resume_id
+            )}`
+          );
+
+        if (cancelled) {
+          return;
+        }
+
+        const resumeMetadata =
+          response.data;
+
+        const restoredResume = {
+          resume_id:
+            resumeMetadata.resume_id,
+
+          thread_id:
+            activeResume.thread_id,
+
+          filename:
+            resumeMetadata.filename,
+        };
+
+        localStorage.setItem(
+          "careerpilot_active_resume",
+          JSON.stringify(
+            restoredResume
+          )
+        );
+
+        localStorage.setItem(
+          "careerpilot_resume_id",
+          String(
+            resumeMetadata.resume_id
+          )
+        );
+
+        setResult({
+          ...resumeMetadata,
+
+          thread_id:
+            activeResume.thread_id,
+        });
+
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+
+        if (
+          err.response?.status === 404
+        ) {
+          localStorage.removeItem(
+            "careerpilot_active_resume"
+          );
+
+          localStorage.removeItem(
+            "careerpilot_resume_id"
+          );
+
+          localStorage.removeItem(
+            "careerpilot_thread_id"
+          );
+
+          localStorage.removeItem(
+            "careerpilot_latest_job_match"
+          );
+
+          localStorage.removeItem(
+            "careerpilot_latest_skill_gap"
+          );
+
+          localStorage.removeItem(
+            "careerpilot_latest_career_plan"
+          );
+
+          setResult(null);
+
+          return;
+        }
+
+        console.error(
+          "CareerPilot resume restoration failed:",
+          err
+        );
+
+        setError(
+          "CareerPilot could not restore your "
+          + "active resume. Please refresh or "
+          + "upload it again."
+        );
+
+      } finally {
+        if (!cancelled) {
+          setRestoring(false);
+        }
+      }
+    }
+
+    restoreResume();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   /* ==================================================
      RESUME THREAD
@@ -473,13 +624,16 @@ function Resume() {
 
 
               <input
-                type="file"
-                accept=".pdf,application/pdf"
-                onChange={
-                  handleFileChange
-                }
-                className="hidden"
-              />
+  type="file"
+  accept=".pdf,application/pdf"
+  onChange={
+    handleFileChange
+  }
+  disabled={
+    restoring
+  }
+  className="hidden"
+/>
 
             </label>
           )}
@@ -584,9 +738,10 @@ function Resume() {
           <button
             type="button"
             disabled={
-              loading ||
-              !file
-            }
+  loading ||
+  restoring ||
+  !file
+}
             onClick={
               handleUpload
             }
@@ -598,9 +753,11 @@ function Resume() {
             />
 
 
-            {loading
-              ? "Preparing your resume..."
-              : "Upload resume"}
+            {restoring
+  ? "Restoring your resume..."
+  : loading
+    ? "Preparing your resume..."
+    : "Upload resume"}
 
           </button>
 
