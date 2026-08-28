@@ -13,6 +13,8 @@ from pydantic import BaseModel, Field
 from app.career_agent_state import (
     CareerAgentState,
 )
+
+
 load_dotenv()
 
 
@@ -204,9 +206,43 @@ PREVIOUS AGENT CONVERSATION
 
 {conversation_history}
 
+
 USER GOAL
 
 {user_goal}
+
+
+CURRENT GOAL PRECEDENCE
+
+- USER GOAL is authoritative for the current target role,
+  technology stack, requested scope, time frame, exclusions,
+  and output format.
+
+- The latest explicit target role in USER GOAL takes
+  precedence over target roles found in PREVIOUS AGENT
+  CONVERSATION, persisted Skill Gap reports, Job Match
+  reports, Career Plans, or other historical evidence.
+
+- Target roles stored in previous conversations and
+  persisted reports are historical evidence. They may help
+  explain the candidate's earlier direction, but they must
+  not replace the current target role.
+
+- When historical evidence conflicts with USER GOAL, follow
+  USER GOAL while continuing to use verified resume facts,
+  existing skills, projects, experience, certifications,
+  and other non-conflicting evidence.
+
+- Never silently convert the current goal into a plan for an
+  older target role merely because a persisted report was
+  generated for that older role.
+
+- If USER GOAL is a follow-up containing a reference such as
+  "the first priority", "that plan", or "revise Day 1",
+  resolve it using the most recent relevant Agent turn.
+
+- If USER GOAL explicitly names or changes a target role,
+  treat that role as the active target immediately.
 
 
 PREVIOUS AGENT OBSERVATIONS

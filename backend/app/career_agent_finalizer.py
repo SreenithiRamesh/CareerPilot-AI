@@ -150,6 +150,38 @@ USER GOAL
 {state["user_goal"]}
 
 
+CURRENT GOAL PRECEDENCE
+
+- USER GOAL is authoritative for the current target role,
+  technology stack, requested scope, time frame, exclusions,
+  and output format.
+
+- The latest explicit target role in USER GOAL takes
+  precedence over target roles found in PREVIOUS AGENT
+  CONVERSATION, persisted Skill Gap reports, Job Match
+  reports, Career Plans, or other historical evidence.
+
+- Target roles stored in previous conversations and
+  persisted reports are historical evidence. They may
+  provide factual career context, but they must not replace
+  the current target role.
+
+- When historical evidence conflicts with USER GOAL, answer
+  USER GOAL while using only the non-conflicting verified
+  facts from the evidence.
+
+- Never produce a preparation plan for an older stored
+  target role when USER GOAL explicitly requests a different
+  current target role.
+
+- If USER GOAL is a contextual follow-up such as
+  "explain the first priority" or "revise Day 1", resolve
+  that reference from the most recent relevant Agent turn.
+
+- If USER GOAL explicitly names or changes a target role,
+  treat that role as the active target immediately.
+
+
 AGENT EXECUTION EVIDENCE
 
 {evidence_text}
