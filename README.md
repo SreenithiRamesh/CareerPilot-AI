@@ -333,7 +333,7 @@ Instead of stopping at a list of missing technologies, CareerPilot recommends pr
 The plan prioritizes important gaps while avoiding unnecessary relearning of technologies already demonstrated by the candidate.
 
 ### Career AI and Project Coach
-<img src="./docs/screenshots/careerpilot-ai-project-guidance" alt="CareerPilot autonomous agent creating a personalized 30-day career plan" width="100%" />
+<img src="./docs/screenshots/careerpilot-ai-project-guidance.png" alt="CareerPilot autonomous agent creating a personalized 30-day career plan" width="100%" />
 <img src="./docs/screenshots/careerpilot-ai-project-guidance.png" alt="Resume-aware Career AI guidance" width="100%" />
 <img src="./docs/screenshots/careerpilot-ai-project-coach.png" alt="CareerPilot Project Coach" width="100%" />
 
